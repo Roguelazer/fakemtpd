@@ -1,0 +1,76 @@
+import errno
+import functools
+import grp
+import optparse
+import os
+import pwd
+import signal
+import socket
+import tornado.ioloop
+
+from fakemtpd.config import Config
+from fakemtpd.connection import Connection
+
+class SMTPD(object):
+    def handle_opts(self):
+        parser = optparse.OptionParser()
+        parser.add_option('-c', '--config-path', action='store', default=None,
+                help='Path to a YAML configuration file (overridden by any conflicting args)')
+        parser.add_option('-p', '--port', dest='port', action='store', type=int, default=25,
+                help='Port to listen on (default %default)')
+        parser.add_option('-B', '--bind', dest='address', action='store', default='',
+                help='Address to bind to (default "%default"')
+        parser.add_option('-v', '--verbose', action='store_true', default=False,
+                help='Be more verbose')
+        (opts, _) = parser.parse_args()
+        return opts
+
+    def die(message):
+        print >>sys.stderr, message
+        sys.exit(1)
+    
+    def maybe_drop_privs(self):
+        if 'user' in self.config:
+            try:
+                data = pwd.getpwnam(self._config.user)
+            except KeyError:
+                self.die('User %s not found, unable to drop privs, aborting' % self._config.user)
+        if 'group' in self.config:
+            try:
+                data = grp.getgrnam(self._config.group)
+            except KeyError:
+                self.die('Group %s not found, unable to drop privs, aborting' % self._config.group)
+
+    def bind(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setblocking(0)
+        sock.bind((self.config.address, self.config.port))
+        sock.listen(128)
+
+        io_loop = tornado.ioloop.IOLoop.instance()
+        new_connection_handler = functools.partial(self.connection_ready, io_loop, sock)
+        io_loop.add_handler(sock.fileno(), new_connection_handler, io_loop.READ)
+        return io_loop
+
+    def connection_ready(self, io_loop, sock, fd, events):
+        while True:
+            try:
+                connection, address = sock.accept()
+            except socket.error, e:
+                if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
+                    raise
+                return
+            c = Connection(io_loop, connection, address)
+            connection.setblocking(0)
+            c.add_handler(io_loop)
+
+    def run(self):
+        opts = self.handle_opts()
+        self.config = Config.instance(opts)
+        if opts.config_path:
+            self.config.read_file(opts.config_path)
+        io_loop = self.bind()
+        self.maybe_drop_privs()
+        signal.signal(signal.SIGINT, lambda signum, frame: io_loop.stop())
+        io_loop.start()

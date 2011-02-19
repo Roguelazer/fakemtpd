@@ -1,0 +1,8 @@
+#!/usr/bin/python
+
+import fakemtpd
+import fakemtpd.server
+
+if __name__ == '__main__':
+    server = fakemtpd.server.SMTPD()
+    server.run()
