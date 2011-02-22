@@ -12,6 +12,9 @@ from fakemtpd.config import Config
 from fakemtpd.connection import Connection
 
 class SMTPD(object):
+    def __init__(self):
+        self.connections = []
+
     def handle_opts(self):
         parser = optparse.OptionParser()
         parser.add_option('-c', '--config-path', action='store', default=None,
@@ -61,9 +64,13 @@ class SMTPD(object):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
-            c = Connection(io_loop, connection, address)
-            connection.setblocking(0)
-            c.add_handler(io_loop)
+            c = Connection(io_loop)
+            c.connect(connection, address)
+            self.connections.append(c)
+
+    def closed(self, connection):
+        """notify that a connection has been closed"""
+        self.connections.remove(connection)
 
     def run(self):
         opts = self.handle_opts()

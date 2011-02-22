@@ -2,15 +2,28 @@ import errno
 import socket
 import sys
 
+CLOSED = "closed"
+CONNECTED = "connected"
+
 class Connection(object):
-    def __init__(self, io_loop, sock, address):
+    def __init__(self, smtpd, io_loop):
+        self.smtpd = smtpd
         self.io_loop = io_loop
+        self._data = []
+        self.state = CLOSED
+
+    def connect(self, sock, address):
         self.sock = sock
         self.address = address
-        self._data = []
+        self.sock.setblocking(0)
+        self.state = CONNECTED
+        self.io_loop.add_handler(self.sock.fileno(), self.handler, self.io_loop.READ)
 
-    def add_handler(self, io_loop):
-        io_loop.add_handler(self.sock.fileno(), self.handler, io_loop.READ)
+    def close(self):
+        self.state = CLOSED
+        self.io_loop.remove_handler(self.sock.fileno())
+        self.sock.close()
+        self.smtpd.closed(self)
 
     def handler(self, fd, events):
         if events & self.io_loop.READ:
@@ -26,6 +39,10 @@ class Connection(object):
         while True:
             try:
                 this_data = self.sock.recv(4096)
+                if len(this_data) == 0:
+                    self.close()
+                    return
+                data.append(this_data)
             except socket.error, e:
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
