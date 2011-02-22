@@ -2,12 +2,17 @@ import errno
 import socket
 import sys
 
+from fakemtpd.signals import Signals
+
 CLOSED = "closed"
 CONNECTED = "connected"
 
 class Connection(object):
-    def __init__(self, smtpd, io_loop):
-        self.smtpd = smtpd
+    __metaclass__ = Signals
+
+    _signals = ["connected", "closed"]
+
+    def __init__(self, io_loop):
         self.io_loop = io_loop
         self._data = []
         self.state = CLOSED
@@ -18,12 +23,13 @@ class Connection(object):
         self.sock.setblocking(0)
         self.state = CONNECTED
         self.io_loop.add_handler(self.sock.fileno(), self.handler, self.io_loop.READ)
+        self._signal_connected()
 
     def close(self):
         self.state = CLOSED
         self.io_loop.remove_handler(self.sock.fileno())
         self.sock.close()
-        self.smtpd.closed(self)
+        self._signal_closed()
 
     def handler(self, fd, events):
         if events & self.io_loop.READ:
@@ -32,7 +38,11 @@ class Connection(object):
             self.write_data()
 
     def handle_data(self, data):
-        sys.stdout.write(data)
+        raise NotImplemented()
+
+    def write(self, data):
+        self._data.append(data)
+        self.io_loop.update_handler(self.sock.fileno(), self.io_loop.READ|self.io_loop.WRITE)
 
     def read_data(self):
         data = []
@@ -61,5 +71,8 @@ class Connection(object):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
-        self.io_loop.update_handler(self.sock.fileno(), io_loop.READ)
+        self.io_loop.update_handler(self.sock.fileno(), self.io_loop.READ)
 
+class SMTPSession(Connection):
+    def handle_data(self, data):
+        self.write(data)

@@ -9,7 +9,7 @@ import socket
 import tornado.ioloop
 
 from fakemtpd.config import Config
-from fakemtpd.connection import Connection
+from fakemtpd.connection import SMTPSession
 
 class SMTPD(object):
     def __init__(self):
@@ -64,13 +64,10 @@ class SMTPD(object):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
-            c = Connection(io_loop)
+            c = SMTPSession(io_loop)
             c.connect(connection, address)
             self.connections.append(c)
-
-    def closed(self, connection):
-        """notify that a connection has been closed"""
-        self.connections.remove(connection)
+            c.on_closed(lambda: self.connections.remove(c))
 
     def run(self):
         opts = self.handle_opts()
