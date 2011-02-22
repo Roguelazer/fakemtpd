@@ -21,6 +21,8 @@ class SMTPD(object):
                 help='Path to a YAML configuration file (overridden by any conflicting args)')
         parser.add_option('-p', '--port', dest='port', action='store', type=int, default=25,
                 help='Port to listen on (default %default)')
+        parser.add_option('-H', '--hostname', dest='hostname', action='store', default=socket.gethostname(),
+                help='Hostname to report as (default %default)')
         parser.add_option('-B', '--bind', dest='address', action='store', default='',
                 help='Address to bind to (default "%default"')
         parser.add_option('-v', '--verbose', action='store_true', default=False,

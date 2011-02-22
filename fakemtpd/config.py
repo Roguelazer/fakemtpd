@@ -3,7 +3,7 @@ from __future__ import with_statement
 import yaml
 
 class Config(object):
-    parameters = ['port', 'address', 'user', 'group']
+    parameters = ['port', 'address', 'user', 'group', 'hostname']
 
     def __init__(self):
         self._config = {}
