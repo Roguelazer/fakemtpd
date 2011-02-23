@@ -10,8 +10,9 @@ from fakemtpd.signals import Signalable
 CLOSED = "closed"
 CONNECTED = "connected"
 
-MAIL_FROM_COMMAND=re.compile(r'')
+MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>')
 HELO_COMMAND=re.compile(r'^HELO\s+(.*)')
+RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<(.+)>')
 
 class Connection(Signalable):
     _signals = ["connected", "closed", "timeout"]
@@ -47,6 +48,8 @@ class Connection(Signalable):
     def close(self):
         self.state = CLOSED
         self.io_loop.remove_handler(self.sock.fileno())
+        if self._timeout_handle:
+            self.io_loop.remove_timeout(self._timeout_handle)
         self.sock.close()
         self._signal_closed()
 
@@ -101,8 +104,11 @@ class Connection(Signalable):
             self.close()
 
 # SMTP States
+SMTP_DISCONNECTED = 0
 SMTP_CONNECTED = 1
 SMTP_HELO = 2
+SMTP_MAIL_FROM = 3
+SMTP_DATA = 4
 
 class SMTPSession(Connection):
     # Timeout before disconecting (in s)
@@ -114,17 +120,76 @@ class SMTPSession(Connection):
         self.on_timeout(self.print_timeout)
         self.config = Config.instance()
         self.remote = ''
+        self._state = SMTP_DISCONNECTED
+        self._message_state = {}
+
+    def connect(self, *args):
+        super(SMTPSession, self).connect(*args)
         self._state = SMTP_CONNECTED
 
     def print_banner(self):
         self.write("220 %s ESMTP FakeMTPD\r\n" % self.config.hostname)
 
     def handle_data(self, data):
+        rv = False
+        if self._state_all(data):
+            return
+        if self._state == SMTP_CONNECTED:
+            rv = self._state_connected(data)
+        elif self._state == SMTP_HELO:
+            rv = self._state_helo(data)
+        elif self._state == SMTP_MAIL_FROM:
+            rv = self._state_mail_from(data)
+        elif self._state == SMTP_DATA:
+            rv = self._state_data(data)
+        if rv == False:
+            self.write("503 Commands out of sync\r\n")
+            self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
+
+    def _state_all(self, data):
+        if data.startswith("QUIT"):
+            self.write_and_close("221 2.0.0 Bye\r\n")
+            return True
+
+    def _state_connected(self, data):
         helo_match = HELO_COMMAND.match(data)
         if helo_match:
             self.remote = helo_match.group(1)
             self.write("250 %s\r\n" % self.config.hostname)
-            self.state = SMTP_HELO
+            self._state = SMTP_HELO
+            return True
+        return False
+
+    def _state_helo(self, data):
+        mail_from_match = MAIL_FROM_COMMAND.match(data)
+        if mail_from_match:
+            self._message_state = {}
+            self._message_state['mail_from'] = mail_from_match.group(1)
+            self.write("250 2.1.0 OK\r\n")
+            self._state = SMTP_MAIL_FROM
+            return True
+        return False
+
+    def _state_mail_from(self, data):
+        rcpt_to_match = RCPT_TO_COMMAND.match(data)
+        data_match = data.startswith("DATA")
+        mail_from_match = MAIL_FROM_COMMAND.match(data)
+        if rcpt_to_match:
+            self._message_state.setdefault('rcpt_to', []).append(rcpt_to_match.group(1))
+            self.write("554 5.7.1 <%s>: Relay access denied\r\n" % self._message_state['mail_from'])
+            self._state = SMTP_HELO
+            return True
+        elif data_match:
+            self._state = SMTP_DATA
+            return True
+        elif mail_from_match:
+            self.write("503 5.5.1 Error: nested MAIL command\r\n")
+            self._state = SMTP_HELO
+            return True
+        return False
+
+    def _state_data(self, data):
+        return False
 
     def print_timeout(self):
         self.write_and_close("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname)
