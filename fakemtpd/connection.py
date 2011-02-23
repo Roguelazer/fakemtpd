@@ -11,7 +11,7 @@ CLOSED = "closed"
 CONNECTED = "connected"
 
 MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>')
-HELO_COMMAND=re.compile(r'^HELO\s+(.*)')
+HELO_COMMAND=re.compile(r'^(?:EHLO|HELO)\s+(.*)')
 RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<(.+)>')
 
 class Connection(Signalable):
