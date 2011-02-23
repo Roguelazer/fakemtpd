@@ -10,10 +10,6 @@ from fakemtpd.signals import Signalable
 CLOSED = "closed"
 CONNECTED = "connected"
 
-MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>')
-HELO_COMMAND=re.compile(r'^(?:EHLO|HELO)\s+(.*)')
-RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<(.+)>')
-
 class Connection(Signalable):
     _signals = ["connected", "closed", "timeout"]
     timeout = -1
@@ -110,6 +106,18 @@ SMTP_HELO = 2
 SMTP_MAIL_FROM = 3
 SMTP_DATA = 4
 
+# Command REs
+MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>', re.I)
+HELO_COMMAND=re.compile(r'^(?:EHLO|HELO)\s+(.*)', re.I)
+RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<(.+)>', re.I)
+VRFY_COMMAND=re.compile(r'^VRFY (<?.+>?)', re.I)
+QUIT_COMMAND=re.compile(r'^QUIT', re.I)
+NOOP_COMMAND=re.compile(r'^NOOP', re.I)
+RSET_COMMAND=re.compile(r'^RSET', re.I)
+DATA_COMMAND=re.compile(r'^DATA', re.I)
+HELP_COMMAND=re.compile(r'^HELP', re.I)
+EXPN_COMMAND=re.compile(r'^EXPN', re.I)
+
 class SMTPSession(Connection):
     # Timeout before disconecting (in s)
     timeout = 30
@@ -136,6 +144,9 @@ class SMTPSession(Connection):
             return
         if self._state == SMTP_CONNECTED:
             rv = self._state_connected(data)
+            # Some people don't HELO before sending commands; lame
+            if not rv:
+                rv = self._state_helo(data)
         elif self._state == SMTP_HELO:
             rv = self._state_helo(data)
         elif self._state == SMTP_MAIL_FROM:
@@ -147,8 +158,23 @@ class SMTPSession(Connection):
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
     def _state_all(self, data):
-        if data.startswith("QUIT"):
+        quit_match = QUIT_COMMAND.match(data)
+        rset_match = RSET_COMMAND.match(data)
+        noop_match = NOOP_COMMAND.match(data)
+        help_match = HELP_COMMAND.match(data)
+        if quit_match:
             self.write_and_close("221 2.0.0 Bye\r\n")
+            return True
+        elif rset_match:
+            self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
+            self._message_state = {}
+            self.write("250 2.0.0 Ok\r\n")
+            return True
+        elif noop_match:
+            self.write("250 2.0.0 Ok\r\n")
+            return True
+        elif help_match:
+            self.write_help()
             return True
 
     def _state_connected(self, data):
@@ -162,17 +188,27 @@ class SMTPSession(Connection):
 
     def _state_helo(self, data):
         mail_from_match = MAIL_FROM_COMMAND.match(data)
+        vrfy_match = VRFY_COMMAND.match(data)
+        expn_match = EXPN_COMMAND.match(data)
         if mail_from_match:
             self._message_state = {}
             self._message_state['mail_from'] = mail_from_match.group(1)
-            self.write("250 2.1.0 OK\r\n")
+            self.write("250 2.1.0 Ok\r\n")
             self._state = SMTP_MAIL_FROM
+            return True
+        elif vrfy_match:
+            self.write("502 5.5.1 VRFY command is disabled\r\n")
+            self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
+            return True
+        elif expn_match:
+            self.write("502 5.5.1 EXPN command is disabled\r\n")
+            self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
             return True
         return False
 
     def _state_mail_from(self, data):
         rcpt_to_match = RCPT_TO_COMMAND.match(data)
-        data_match = data.startswith("DATA")
+        data_match = DATA_COMMAND.match(data)
         mail_from_match = MAIL_FROM_COMMAND.match(data)
         if rcpt_to_match:
             self._message_state.setdefault('rcpt_to', []).append(rcpt_to_match.group(1))
@@ -192,4 +228,23 @@ class SMTPSession(Connection):
         return False
 
     def print_timeout(self):
+        self._timeout_handle = None
         self.write_and_close("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname)
+
+    def write_help(self):
+        self.write("250 Ok\r\n")
+        message = [
+                "HELO",
+                "EHLO",
+                "HELP",
+                "NOOP",
+                "QUIT",
+                "MAIL FROM:<address>",
+                "RCPT TO:<address>",
+                "DATA",
+                "VRFY",
+                "EXPN",
+                "RSET",
+        ]
+        for msg in message:
+            self.write("250 HELP - " + msg + "\r\n")
