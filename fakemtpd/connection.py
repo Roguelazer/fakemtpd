@@ -27,13 +27,13 @@ class Connection(Signalable):
         self.state = CONNECTED
         self.io_loop.add_handler(self.sock.fileno(), self.handler, self.io_loop.READ)
         self._timeout_handle = None
+        self.on_timeout(self._timeout)
         self._set_timeout()
         self._signal_connected()
         self._closing = False
 
-    def _signal_timeout(self):
+    def _timeout(self):
         self._timeout_handle = None
-        super(Connection, self)._signal_timeout()
 
     def _set_timeout(self):
         if self.timeout > 0:
