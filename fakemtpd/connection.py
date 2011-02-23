@@ -104,7 +104,6 @@ SMTP_DISCONNECTED = 0
 SMTP_CONNECTED = 1
 SMTP_HELO = 2
 SMTP_MAIL_FROM = 3
-SMTP_DATA = 4
 
 # Command REs
 MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>', re.I)
@@ -151,8 +150,6 @@ class SMTPSession(Connection):
             rv = self._state_helo(data)
         elif self._state == SMTP_MAIL_FROM:
             rv = self._state_mail_from(data)
-        elif self._state == SMTP_DATA:
-            rv = self._state_data(data)
         if rv == False:
             self.write("503 Commands out of sync\r\n")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
@@ -216,15 +213,13 @@ class SMTPSession(Connection):
             self._state = SMTP_HELO
             return True
         elif data_match:
-            self._state = SMTP_DATA
+            self.write("502 5.5.1 DATA command is disabled\r\n")
+            self._state = SMTP_HELO
             return True
         elif mail_from_match:
             self.write("503 5.5.1 Error: nested MAIL command\r\n")
             self._state = SMTP_HELO
             return True
-        return False
-
-    def _state_data(self, data):
         return False
 
     def print_timeout(self):
