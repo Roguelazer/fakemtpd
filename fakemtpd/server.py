@@ -14,18 +14,19 @@ from fakemtpd.connection import SMTPSession
 class SMTPD(object):
     def __init__(self):
         self.connections = []
+        self.config = Config.instance()
 
     def handle_opts(self):
         parser = optparse.OptionParser()
         parser.add_option('-c', '--config-path', action='store', default=None,
                 help='Path to a YAML configuration file (overridden by any conflicting args)')
-        parser.add_option('-p', '--port', dest='port', action='store', type=int, default=25,
+        parser.add_option('-p', '--port', dest='port', action='store', type=int, default=self.config.port,
                 help='Port to listen on (default %default)')
-        parser.add_option('-H', '--hostname', dest='hostname', action='store', default=socket.gethostname(),
+        parser.add_option('-H', '--hostname', dest='hostname', action='store', default=self.config.hostname,
                 help='Hostname to report as (default %default)')
-        parser.add_option('-B', '--bind', dest='address', action='store', default='',
+        parser.add_option('-B', '--bind', dest='address', action='store', default=self.config.address,
                 help='Address to bind to (default "%default"')
-        parser.add_option('-v', '--verbose', action='store_true', default=False,
+        parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
                 help='Be more verbose')
         (opts, _) = parser.parse_args()
         return opts
@@ -35,16 +36,18 @@ class SMTPD(object):
         sys.exit(1)
     
     def maybe_drop_privs(self):
-        if 'user' in self.config:
-            try:
-                data = pwd.getpwnam(self._config.user)
-            except KeyError:
-                self.die('User %s not found, unable to drop privs, aborting' % self._config.user)
         if 'group' in self.config:
             try:
-                data = grp.getgrnam(self._config.group)
+                data = grp.getgrnam(self.config.group)
+                os.setegid(data.gr_gid)
             except KeyError:
                 self.die('Group %s not found, unable to drop privs, aborting' % self._config.group)
+        if 'user' in self.config:
+            try:
+                data = pwd.getpwnam(self.config.user)
+                os.seteuid(data.pw_uid)
+            except KeyError:
+                self.die('User %s not found, unable to drop privs, aborting' % self._config.user)
 
     def bind(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -73,7 +76,7 @@ class SMTPD(object):
 
     def run(self):
         opts = self.handle_opts()
-        self.config = Config.instance(opts)
+        self.config.merge_opts(opts)
         if opts.config_path:
             self.config.read_file(opts.config_path)
         io_loop = self.bind()
