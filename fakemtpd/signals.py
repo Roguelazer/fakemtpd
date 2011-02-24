@@ -28,7 +28,7 @@ def _handler_factory(signal_name):
 """ % signal_name
     signal_signal.__doc__ = """Assert the signal '%s' and notify any registered callbacks"""
     on_signal.__name__ = "on_" + signal_name
-    signal_signal.__name__ = "_signal" + signal_name
+    signal_signal.__name__ = "_signal_" + signal_name
     return (on_signal, signal_signal)
 
 class _Signals(type):
