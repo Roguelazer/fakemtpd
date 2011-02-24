@@ -6,6 +6,7 @@ import os
 import pwd
 import signal
 import socket
+import sys
 import tornado.ioloop
 
 from fakemtpd.config import Config
@@ -31,23 +32,23 @@ class SMTPD(object):
         (opts, _) = parser.parse_args()
         return opts
 
-    def die(message):
+    def die(self, message):
         print >>sys.stderr, message
         sys.exit(1)
     
     def maybe_drop_privs(self):
-        if 'group' in self.config:
+        if self.config.group:
             try:
                 data = grp.getgrnam(self.config.group)
                 os.setegid(data.gr_gid)
             except KeyError:
-                self.die('Group %s not found, unable to drop privs, aborting' % self._config.group)
-        if 'user' in self.config:
+                self.die('Group %s not found, unable to drop privs, aborting' % self.config.group)
+        if self.config.user:
             try:
                 data = pwd.getpwnam(self.config.user)
                 os.seteuid(data.pw_uid)
             except KeyError:
-                self.die('User %s not found, unable to drop privs, aborting' % self._config.user)
+                self.die('User %s not found, unable to drop privs, aborting' % self.config.user)
 
     def bind(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)

@@ -55,10 +55,11 @@ class Connection(Signalable):
         elif events & self.io_loop.WRITE:
             self.write_data()
 
-    def handle_data(self, data):
+    def _handle_data(self, data):
         self._set_timeout()
 
     def write(self, data):
+        """Write some data to the connection (asynchronously)"""
         self._data.append(data)
         self.io_loop.update_handler(self.sock.fileno(), self.io_loop.READ|self.io_loop.WRITE)
         self._set_timeout()
@@ -81,7 +82,7 @@ class Connection(Signalable):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 break
-        self.handle_data(''.join(data))
+        self._handle_data(''.join(data))
     
     def write_data(self):
         while self._data:
@@ -118,7 +119,9 @@ HELP_COMMAND=re.compile(r'^HELP', re.I)
 EXPN_COMMAND=re.compile(r'^EXPN', re.I)
 
 class SMTPSession(Connection):
-    # Timeout before disconecting (in s)
+    """Implement the SMTP protocol on top of a Connection"""
+
+    # Timeout before disconecting (in seconds)
     timeout = 30
 
     def __init__(self, *args):
@@ -137,7 +140,7 @@ class SMTPSession(Connection):
     def print_banner(self):
         self.write("220 %s ESMTP FakeMTPD\r\n" % self.config.hostname)
 
-    def handle_data(self, data):
+    def _handle_data(self, data):
         rv = False
         if self._state_all(data):
             return
