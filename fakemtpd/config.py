@@ -5,10 +5,33 @@ import new
 import socket
 import yaml
 
+def _param_getter_factory(parameter):
+    def f(self):
+        return self._config[parameter]
+    f.__name__ = parameter
+    return f
+
+
+class _ParamsAsProps(type):
+    """Create properties on the classes that apply this for everything
+    in cls._parameters which read out of self._config.
+
+    Cool fact: you can override any of these properties by just defining
+    your own with the same name. Just like if they were statically defined!"""
+    def __new__(clsarg, name, bases, d):
+        cls = super(_ParamsAsProps, clsarg).__new__(clsarg, name, bases, d)
+        for parameter in cls._parameters.iterkeys():
+            if parameter not in d:
+                f = _param_getter_factory(parameter)
+                setattr(cls, parameter, property(f))
+        return cls
+
 class Config(object):
     """Singleton class for implementing configuration. Use the instance
     method to get handles to it. Supports loading options from both objects
     and YAML files."""
+
+    __metaclass__ = _ParamsAsProps
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
@@ -22,16 +45,6 @@ class Config(object):
             'verbose': False,
             'mtd': 'FakeMTPD',
     }
-
-    def __new__(cls, *args, **kwargs):
-        # MAGIC
-        # Creates properties corresponding to everything in self.parameter
-        # which doesn't already have a property
-        obj = super(Config, cls).__new__(cls, *args, **kwargs)
-        for parameter in cls._parameters.iterkeys():
-            if parameter not in obj.__dict__:
-                setattr(cls, parameter, property(lambda self: self._config[parameter]))
-        return obj
 
     def __init__(self):
         """Initialize the object. You should always use instance()"""
