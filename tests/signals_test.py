@@ -68,5 +68,19 @@ class SignalableTestCase(TestCase):
         assert_equal(foo_ran, 0)
         assert_equal(bar_ran, 1)
 
+    def test_multiple(self):
+        obj = SignalClass()
+        foo_ran = Counter()
+        foo_3_ran = Counter()
+        foo_callback_1 = lambda:foo_ran.incr()
+        foo_callback_2 = lambda:foo_ran.incr()
+        foo_callback_3 = lambda:foo_3_ran.incr()
+        assert_equal(obj.on_foo(foo_callback_1), "foo")
+        assert_equal(obj.on_foo(foo_callback_2), "foo")
+        assert_equal(obj.on_foo(foo_callback_3), "foo")
+        obj.send()
+        assert_equal(foo_ran, 2)
+        assert_equal(foo_3_ran, 1)
+
 if __name__ == "__main__":
     run()
