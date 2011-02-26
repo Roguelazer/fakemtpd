@@ -10,7 +10,8 @@ import sys
 import tornado.ioloop
 
 from fakemtpd.config import Config
-from fakemtpd.connection import SMTPSession
+from fakemtpd.connection import Connection
+from fakemtpd.smtpsession import SMTPSession
 
 class SMTPD(object):
     def __init__(self):
@@ -70,9 +71,10 @@ class SMTPD(object):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
-            c = SMTPSession(io_loop)
+            c = Connection(io_loop)
+            s = SMTPSession(c)
             c.connect(connection, address)
-            self.connections.append(c)
+            self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(c))
 
     def run(self):
