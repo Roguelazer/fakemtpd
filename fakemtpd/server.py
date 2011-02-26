@@ -30,6 +30,8 @@ class SMTPD(object):
                 help='Address to bind to (default "%default"')
         parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
                 help='Be more verbose')
+        parser.add_option('--gen-config', action='store_true', default=False,
+                help='Print out a config file with all parameters')
         (opts, _) = parser.parse_args()
         return opts
 
@@ -80,6 +82,9 @@ class SMTPD(object):
     def run(self):
         opts = self.handle_opts()
         self.config.merge_opts(opts)
+        if opts.gen_config:
+            self.config.write()
+            sys.exit(0)
         if opts.config_path:
             self.config.read_file(opts.config_path)
         io_loop = self.bind()

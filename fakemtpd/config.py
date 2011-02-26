@@ -74,6 +74,10 @@ class Config(object):
                 if key in self._parameters:
                     self._config[key] = data[key]
 
+    def write(self):
+        """Writes the current config to stdout, as YAML"""
+        print yaml.dump(self._config, default_flow_style=False),
+
     @property
     def port(self):
         return int(self._config['port'])
