@@ -30,8 +30,12 @@ class SMTPD(object):
                 help='Address to bind to (default "%default"')
         parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
                 help='Be more verbose')
+        parser.add_option('--cert', action='store', default=self.config.cert,
+                help='Certificate to use for TLS')
         parser.add_option('--gen-config', action='store_true', default=False,
                 help='Print out a config file with all parameters')
+        parser.add_option('--smtp-ver', action='store', default=self.config.smtp_ver,
+                help='SMTP or ESMTP')
         (opts, _) = parser.parse_args()
         return opts
 
@@ -81,12 +85,18 @@ class SMTPD(object):
 
     def run(self):
         opts = self.handle_opts()
-        self.config.merge_opts(opts)
+        errors = self.config.merge_opts(opts)
+        if errors:
+            print errors
+            sys.exit(1)
         if opts.gen_config:
             self.config.write()
             sys.exit(0)
         if opts.config_path:
-            self.config.read_file(opts.config_path)
+            errors = self.config.read_file(opts.config_path)
+            if errors:
+                print errors
+                sys.exit(1)
         io_loop = self.bind()
         self.maybe_drop_privs()
         signal.signal(signal.SIGINT, lambda signum, frame: io_loop.stop())

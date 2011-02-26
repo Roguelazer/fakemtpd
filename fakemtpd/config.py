@@ -44,6 +44,8 @@ class Config(object):
             'hostname': socket.gethostname(),
             'verbose': False,
             'mtd': 'FakeMTPD',
+            'smtp_ver': 'SMTP',
+            'cert': None
     }
 
     def __init__(self):
@@ -65,6 +67,7 @@ class Config(object):
         for opt in self._parameters:
             if getattr(opts, opt, None) is not None:
                 self._config[opt] = getattr(opts, opt)
+        return self._validate()
 
     def read_file(self, path):
         """Merge in options from a YAML file."""
@@ -73,10 +76,16 @@ class Config(object):
             for key in data:
                 if key in self._parameters:
                     self._config[key] = data[key]
+        return self._validate()
 
     def write(self):
         """Writes the current config to stdout, as YAML"""
         print yaml.dump(self._config, default_flow_style=False),
+
+    def _validate(self):
+        if self._config['cert'] and self._config['smtp_ver'] != 'ESMTP':
+            return "Cannot specify a certificate without having an smtp_ver of ESMTP"
+        return None
 
     @property
     def port(self):
