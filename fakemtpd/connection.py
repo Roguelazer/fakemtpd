@@ -29,6 +29,7 @@ class Connection(Signalable):
         self.sock.setblocking(0)
         self.state = CONNECTED
         self.stream = tornado.iostream.IOStream(self.sock, io_loop=self.io_loop)
+        self.stream.set_close_callback(self._clear_timeout)
         self.on_timeout(self._timeout, first=True)
         self._set_timeout()
         self._signal_connected()
@@ -40,6 +41,7 @@ class Connection(Signalable):
                 do_handshake_on_connect=False, **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
         self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
+        self.stream.set_close_callback(self._clear_timeout)
         self._read()
 
     def _timeout(self):
@@ -50,6 +52,10 @@ class Connection(Signalable):
             if self._timeout_handle:
                 self.io_loop.remove_timeout(self._timeout_handle)
             self._timeout_handle = self.io_loop.add_timeout(time.time() + self.timeout, self._signal_timeout)
+
+    def _clear_timeout(self):
+        if self.timeout > 0:
+            self.io_loop.remove_timeout(self._timeout_handle)
 
     def close(self):
         self.state = CLOSED
