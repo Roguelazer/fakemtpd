@@ -75,7 +75,7 @@ class SMTPSession(object):
         noop_match = NOOP_COMMAND.match(data)
         help_match = HELP_COMMAND.match(data)
         if quit_match:
-            self.conn.write("221 2.0.0 Bye\r\n", self.conn.close)
+            self.conn.write("221 2.0.0 Bye\r\n", self.conn.close, False)
             return True
         elif rset_match:
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
@@ -166,7 +166,7 @@ class SMTPSession(object):
 
     def _print_timeout(self):
         self._timeout_handle = None
-        self.conn.write("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname, self.conn.close)
+        self.conn.write("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname, self.conn.close, False)
 
     def write_help(self):
         self.conn.write("250 Ok\r\n")

@@ -66,7 +66,8 @@ class Connection(Signalable):
         self.stream.read_until("\n", self._handle_data)
         self._set_timeout()
 
-    def write(self, data, callback=None):
+    def write(self, data, callback=None, st=True):
         """Write some data to the connection (asynchronously)"""
         self.stream.write(data, callback)
-        self._set_timeout()
+        if st:
+            self._set_timeout()
