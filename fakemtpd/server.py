@@ -83,7 +83,7 @@ class SMTPD(object):
             s = SMTPSession(c)
             c.connect(connection, address)
             self.connections.append(s)
-            c.on_closed(lambda: self.connections.remove(c))
+            c.on_closed(lambda: self.connections.remove(s))
 
     def run(self):
         opts = self.handle_opts()

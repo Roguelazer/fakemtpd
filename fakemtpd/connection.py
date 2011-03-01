@@ -1,6 +1,8 @@
 import errno
+import select
 import socket
 import sys
+import ssl
 import time
 
 import tornado.iostream
@@ -32,6 +34,16 @@ class Connection(Signalable):
         self._signal_connected()
         self._read()
 
+    def starttls(self, **ssl_options):
+        assert self.state == CONNECTED
+        self.sock = ssl.wrap_socket(self.sock, server_side=True,
+                do_handshake_on_connect=False, **ssl_options)
+        self.io_loop.remove_handler(self.sock.fileno())
+        self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
+        print "Made SSLIOStream"
+        self.stream._do_ssl_handshake()
+        self._read()
+
     def _timeout(self):
         self._timeout_handle = None
 
@@ -55,10 +67,7 @@ class Connection(Signalable):
     def _read(self):
         self.stream.read_until("\n", self._handle_data)
 
-    def write(self, data):
+    def write(self, data, callback=None):
         """Write some data to the connection (asynchronously)"""
-        self.stream.write(data)
+        self.stream.write(data, callback)
         self._set_timeout()
-
-    def write_and_close(self, data):
-        self.stream.write(data, callback=self.close)

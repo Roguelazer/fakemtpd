@@ -3,7 +3,6 @@ import re
 from fakemtpd.config import Config
 
 # SMTP States
-SMTP_TLS_NEGOT = -1
 SMTP_DISCONNECTED = 0
 SMTP_CONNECTED = 1
 SMTP_HELO = 2
@@ -64,9 +63,8 @@ class SMTPSession(object):
             rv = self._state_helo(data)
         elif self._state == SMTP_MAIL_FROM:
             rv = self._state_mail_from(data)
-        elif self._state == SMTP_TLS_NEGOT:
-            rv = self._state_tls_negot(data)
         if rv == False:
+            print self._state
             self.conn.write("503 Commands out of sync or unrecognized\r\n")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
@@ -76,7 +74,7 @@ class SMTPSession(object):
         noop_match = NOOP_COMMAND.match(data)
         help_match = HELP_COMMAND.match(data)
         if quit_match:
-            self.conn.write_and_close("221 2.0.0 Bye\r\n")
+            self.conn.write("221 2.0.0 Bye\r\n", self.conn.close)
             return True
         elif rset_match:
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
@@ -101,9 +99,9 @@ class SMTPSession(object):
             return True
         elif ehlo_match:
             self.remote = ehlo_match.group(1)
-            self.conn.write("250 %s\r\n" % self.config.hostname)
-            if self.config.cert:
-                self.conn.write("250-STARTTLS\r\n")
+            self.conn.write("250-%s\r\n" % self.config.hostname)
+            if self.config.tls_cert:
+                self.conn.write("250 STARTTLS\r\n")
             self._state = SMTP_HELO
             self._mode = 'EHLO'
             return True
@@ -132,9 +130,8 @@ class SMTPSession(object):
     def _state_after_helo(self, data):
         starttls_match = STARTTLS_COMMAND.match(data)
         if starttls_match:
-            if self.config.cert and self._mode == 'EHLO':
-                self.conn.write('220 Go Ahead')
-                self._state = SMTP_TLS_NEGOT
+            if self.config.tls_cert and self._mode == 'EHLO':
+                self.conn.write("220 Go Ahead\r\n", lambda: self.conn.starttls(keyfile=self.config.tls_key, certfile=self.config.tls_cert))
             else:
                 self.conn.write('502 5.5.1 STARTTLS not supported in RFC821 mode (meant to say EHLO?)\r\n')
             return True
@@ -159,12 +156,9 @@ class SMTPSession(object):
             return True
         return False
 
-    def _state_tls_negot(self, data):
-        return False
-
     def _print_timeout(self):
         self._timeout_handle = None
-        self.conn.write_and_close("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname)
+        self.conn.write("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname, self.conn.close)
 
     def write_help(self):
         self.conn.write("250 Ok\r\n")
