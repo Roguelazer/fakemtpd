@@ -40,7 +40,6 @@ class Connection(Signalable):
                 do_handshake_on_connect=False, **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
         self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
-        print "Made SSLIOStream"
         self.stream._do_ssl_handshake()
         self._read()
 
