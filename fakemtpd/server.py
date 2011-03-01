@@ -79,7 +79,7 @@ class SMTPD(object):
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
-            c = Connection(io_loop)
+            c = Connection(io_loop, self.config.timeout)
             s = SMTPSession(c)
             c.connect(connection, address)
             self.connections.append(s)

@@ -39,6 +39,7 @@ class SMTPSession(object):
         self._state = SMTP_DISCONNECTED
         self._message_state = {}
         self._mode = 'HELO'
+        self._encrypted = False
 
     def _connect(self):
         self._state = SMTP_CONNECTED
@@ -85,7 +86,7 @@ class SMTPSession(object):
             self.conn.write("250 2.0.0 Ok\r\n")
             return True
         elif help_match:
-            self.conn.write_help()
+            self.write_help()
             return True
 
     def _state_connected(self, data):
@@ -130,12 +131,19 @@ class SMTPSession(object):
     def _state_after_helo(self, data):
         starttls_match = STARTTLS_COMMAND.match(data)
         if starttls_match:
+            if self._encrypted:
+                self.conn.write("554 5.5.1 Error: TLS already active\r\n")
+                return True
             if self.config.tls_cert and self._mode == 'EHLO':
-                self.conn.write("220 Go Ahead\r\n", lambda: self.conn.starttls(keyfile=self.config.tls_key, certfile=self.config.tls_cert))
+                self.conn.write("220 Go Ahead\r\n", self._starttls)
             else:
                 self.conn.write('502 5.5.1 STARTTLS not supported in RFC821 mode (meant to say EHLO?)\r\n')
             return True
         return False
+
+    def _starttls(self):
+        self.conn.starttls(keyfile=self.config.tls_key, certfile=self.config.tls_cert)
+        self._encrypted = True
 
     def _state_mail_from(self, data):
         rcpt_to_match = RCPT_TO_COMMAND.match(data)
@@ -175,5 +183,8 @@ class SMTPSession(object):
                 "EXPN",
                 "RSET",
         ]
+        if self.config.tls_cert:
+            message.append("STARTTLS")
         for msg in message:
-            self.conn.write("250 HELP - " + msg + "\r\n")
+            self.conn.write("250-HELP " + msg + "\r\n")
+        self.conn.write("250-HELP Ok\r\n")

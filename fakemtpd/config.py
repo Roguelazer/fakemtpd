@@ -46,7 +46,8 @@ class Config(object):
             'mtd': 'FakeMTPD',
             'smtp_ver': 'SMTP',
             'tls_cert': None,
-            'tls_key': None
+            'tls_key': None,
+            'timeout': 30,
     }
 
     def __init__(self):

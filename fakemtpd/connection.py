@@ -15,12 +15,12 @@ CONNECTED = "connected"
 class Connection(Signalable):
     """Wrapper around tornado.iostream.IOStream"""
     _signals = ["connected", "closed", "timeout", "data"]
-    timeout = -1
 
-    def __init__(self, io_loop):
+    def __init__(self, io_loop, timeout=-1):
         super(Connection, self).__init__()
         self.io_loop = io_loop
         self.state = CLOSED
+        self.timeout = timeout
         self._timeout_handle = None
 
     def connect(self, sock, address):
@@ -29,7 +29,7 @@ class Connection(Signalable):
         self.sock.setblocking(0)
         self.state = CONNECTED
         self.stream = tornado.iostream.IOStream(self.sock, io_loop=self.io_loop)
-        self.on_timeout(self._timeout)
+        self.on_timeout(self._timeout, first=True)
         self._set_timeout()
         self._signal_connected()
         self._read()
@@ -40,7 +40,6 @@ class Connection(Signalable):
                 do_handshake_on_connect=False, **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
         self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
-        self.stream._do_ssl_handshake()
         self._read()
 
     def _timeout(self):
@@ -65,6 +64,7 @@ class Connection(Signalable):
 
     def _read(self):
         self.stream.read_until("\n", self._handle_data)
+        self._set_timeout()
 
     def write(self, data, callback=None):
         """Write some data to the connection (asynchronously)"""
