@@ -59,13 +59,10 @@ class SMTPSession(object):
             if not rv:
                 rv = self._state_helo(data)
         elif self._state == SMTP_HELO:
-            rv = self._state_helo or self._state_after_helo(data)
-        elif self._state == SMTP_HELO:
-            rv = self._state_helo(data)
+            rv = self._state_helo(data) or self._state_after_helo(data)
         elif self._state == SMTP_MAIL_FROM:
             rv = self._state_mail_from(data)
         if rv == False:
-            print self._state
             self.conn.write("503 Commands out of sync or unrecognized\r\n")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
