@@ -45,7 +45,8 @@ class Config(object):
             'verbose': False,
             'mtd': 'FakeMTPD',
             'smtp_ver': 'SMTP',
-            'cert': None
+            'tls_cert': None,
+            'tls_key': None
     }
 
     def __init__(self):
@@ -83,8 +84,12 @@ class Config(object):
         print yaml.dump(self._config, default_flow_style=False),
 
     def _validate(self):
-        if self._config['cert'] and self._config['smtp_ver'] != 'ESMTP':
-            return "Cannot specify a certificate without having an smtp_ver of ESMTP"
+        if self._config['smtp_ver'] not in ('SMTP', 'ESMTP'):
+            return "smtp_ver must be in ('SMTP', 'ESMTP')"
+        if bool(self._config['tls_cert']) ^ bool(self._config['tls_key']):
+            return "Cannot specify a certificate without a key, or vice versa"
+        if self._config['tls_cert']:
+            self._config['smtp_ver'] = 'ESMTP'
         return None
 
     @property

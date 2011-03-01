@@ -30,8 +30,10 @@ class SMTPD(object):
                 help='Address to bind to (default "%default"')
         parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
                 help='Be more verbose')
-        parser.add_option('--cert', action='store', default=self.config.cert,
+        parser.add_option('--tls-cert', action='store', default=self.config.tls_cert,
                 help='Certificate to use for TLS')
+        parser.add_option('--tls-key', action='store', default=self.config.tls_key,
+                help='Key to use for TLS')
         parser.add_option('--gen-config', action='store_true', default=False,
                 help='Print out a config file with all parameters')
         parser.add_option('--smtp-ver', action='store', default=self.config.smtp_ver,
