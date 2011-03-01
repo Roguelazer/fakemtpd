@@ -54,7 +54,7 @@ class Connection(Signalable):
             self._timeout_handle = self.io_loop.add_timeout(time.time() + self.timeout, self._signal_timeout)
 
     def _clear_timeout(self):
-        if self.timeout > 0:
+        if self.timeout > 0 and self._timeout_handle:
             self.io_loop.remove_timeout(self._timeout_handle)
 
     def close(self):
