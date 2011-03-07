@@ -1,5 +1,7 @@
+import daemon
 import errno
 import functools
+import logging
 import grp
 import optparse
 import os
@@ -9,12 +11,17 @@ import socket
 import sys
 import tornado.ioloop
 
+from fakemtpd.better_lockfile import BetterLockfile
 from fakemtpd.config import Config
 from fakemtpd.connection import Connection
 from fakemtpd.smtpsession import SMTPSession
+from fakemtpd.signals import Signalable
 
-class SMTPD(object):
+class SMTPD(Signalable):
+    _signals = ('stop',)
+
     def __init__(self):
+        super(SMTPD, self).__init__()
         self.connections = []
         self.config = Config.instance()
 
@@ -38,7 +45,15 @@ class SMTPD(object):
                 help='Print out a config file with all parameters')
         parser.add_option('--smtp-ver', action='store', default=self.config.smtp_ver,
                 help='SMTP or ESMTP')
+        parser.add_option('-d', '--daemonize', action='store_true', default=self.config.daemonize,
+                help='Damonize (must also specify a pid_file)')
+        parser.add_option('--pid-file', action='store', default=self.config.pid_file,
+                help='PID File (only makes sense if daemonize passed')
+        parser.add_option('--log-file', action='store', default=self.config.log_file,
+                help='File to write logs to (defaults to stdout)')
         (opts, _) = parser.parse_args()
+        if bool(opts.daemonize) ^ bool(opts.pid_file):
+            parser.error('Cannot specify --daemonize xor --pid-file')
         return opts
 
     def die(self, message):
@@ -89,17 +104,41 @@ class SMTPD(object):
         opts = self.handle_opts()
         errors = self.config.merge_opts(opts)
         if errors:
-            print errors
-            sys.exit(1)
+            if errors:
+                self.die(errors)
         if opts.gen_config:
             self.config.write()
             sys.exit(0)
         if opts.config_path:
             errors = self.config.read_file(opts.config_path)
             if errors:
-                print errors
-                sys.exit(1)
+                self.die(errors)
+        if self.config.log_file:
+            try:
+                self.log_file = open(self.config.log_file, 'a')
+                self.on_stop(lambda: self.log_file.close())
+            except:
+                self.die("Could not access log file %s" % self.config.log_file)
+        if self.config.daemonize:
+            pidfile = BetterLockfile(self.config.pid_file)
+            pidfile.acquire()
+            pidfile.release()
+            logging.info("about to daemonize")
+            d = daemon.DaemonContext(pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
+            self.on_stop(lambda: d.close())
+            d.open()
+            logging.basicConfig(stream=sys.stderr,level=logging.DEBUG)
+        else:
+            sys.stdout = self.log_file
+            sys.stderr = self.log_file
+            logging.basicConfig(stream=sys.stderr)
+        signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
+        signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
+        self._run()
+
+    def _run(self):
+        """Does the actual work of running"""
         io_loop = self.bind()
         self.maybe_drop_privs()
-        signal.signal(signal.SIGINT, lambda signum, frame: io_loop.stop())
+        self.on_stop(lambda: io_loop.stop())
         io_loop.start()

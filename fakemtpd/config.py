@@ -48,6 +48,9 @@ class Config(object):
             'tls_cert': None,
             'tls_key': None,
             'timeout': 30,
+            'daemonize': False,
+            'pid_file': None,
+            'log_file': None,
     }
 
     def __init__(self):
@@ -91,6 +94,8 @@ class Config(object):
             return "Cannot specify a certificate without a key, or vice versa"
         if self._config['tls_cert']:
             self._config['smtp_ver'] = 'ESMTP'
+        if bool(self._config['daemonize']) ^ bool(self._config['pid_file']):
+            return 'Cannot specify to daemonize without a pid-file, or vice versa'
         return None
 
     @property
