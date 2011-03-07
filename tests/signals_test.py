@@ -6,7 +6,7 @@ from testify import TestCase, assert_equal, setup, teardown, run
 from fakemtpd.signals import _Signals, Signalable
 
 class SignalClass(Signalable):
-    _signals = ["foo", "bar"]
+    _signals = ("foo", "bar")
 
     def send(self):
         self._signal_foo()
@@ -17,12 +17,21 @@ class FancySignalClass(SignalClass):
         super(FancySignalClass, self).__init__()
         self.foo_signaled = Counter()
 
+class SignalWithDataClass(Signalable):
+    _signals = ("food",)
+
+    def send_d(self, arg):
+        self._signal_food(arg)
+
 class Counter(object):
     def __init__(self, start=0):
         self.val = start
     
     def incr(self):
         self.val += 1
+
+    def set_to(self, val):
+        self.val = val
 
     def decr(self):
         self.val -= 1
@@ -81,6 +90,14 @@ class SignalableTestCase(TestCase):
         obj.send()
         assert_equal(foo_ran, 2)
         assert_equal(foo_3_ran, 1)
+
+    def test_data(self):
+        obj = SignalWithDataClass()
+        food_data = Counter()
+        food_callback = lambda d: food_data.set_to(d)
+        assert_equal(obj.on_food(food_callback), "food")
+        obj.send_d(10)
+        assert_equal(food_data, 10)
 
 if __name__ == "__main__":
     run()
