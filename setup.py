@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
         name="fakemtpd",
-        version="0.0.1",
+        version="0.1",
         provides="fakemtpd",
         author="James Brown",
         author_email="jbrown@yelp.com",
@@ -16,7 +16,7 @@ setup(
             "Topic :: Communications :: Email",
             "Development Status :: 2 - Pre-Alpha"
         ],
-        requires = [ "tornado (>=1.0)" ],
+        requires = [ "tornado (>=1.0)", "daemon (>=1.5)", "lockfile (>=0.7)", "yaml" ],
         packages = [ "fakemtpd" ],
         scripts = [ "bin/fakemtpd" ],
 )
