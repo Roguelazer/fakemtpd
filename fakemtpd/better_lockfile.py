@@ -61,10 +61,12 @@ class BetterLockfile(object):
         logging.info("Unlocked %s", self.path)
 
     def destroy(self):
-        if self.i_am_locking:
-            self.release()
-        self.lock_file.close()
-        os.unlink(self.path)
+        try:
+            if self.i_am_locking:
+                self.release()
+            self.lock_file.close()
+        finally:
+            os.unlink(self.path)
 
     def __enter__(self):
         self.acquire()
