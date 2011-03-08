@@ -15,8 +15,11 @@ import types
 # (which is important to get the help looking correct).
 
 def _handler_factory(signal_name):
-    def on_signal(self, callback):
-        self._signal_handlers.setdefault(signal_name, []).append(callback)
+    def on_signal(self, callback, first=False):
+        if first:
+            self._signal_handlers.setdefault(signal_name, []).insert(0, callback)
+        else:
+            self._signal_handlers.setdefault(signal_name, []).append(callback)
         return signal_name
     def signal_signal(self, *args):
         for handler in self._signal_handlers.get(signal_name, []):
