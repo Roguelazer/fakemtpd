@@ -23,14 +23,13 @@ class BetterLockfile(object):
         return self.lock_file
 
     def acquire(self):
-        logging.info("Locking %s", self.path)
+        logging.debug("Locking %s", self.path)
         try:
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
             self._has_lock = True
         except IOError, e:
-            print e
             raise lockfile.AlreadyLocked()
-        logging.info("Locked %s", self.path)
+        logging.debug("Locked %s", self.path)
 
     def break_lock(self):
         """Can't break posix locks, sorry man"""
@@ -52,13 +51,13 @@ class BetterLockfile(object):
             return True
 
     def release(self):
-        logging.info("Releasing lock on %s", self.path)
+        logging.debug("Releasing lock on %s", self.path)
         if self.i_am_locking:
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
             self._has_lock = False
         else:
             raise lockfile.NotLocked()
-        logging.info("Unlocked %s", self.path)
+        logging.debug("Unlocked %s", self.path)
 
     def destroy(self):
         try:

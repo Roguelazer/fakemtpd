@@ -1,6 +1,7 @@
 import daemon
 import errno
 import functools
+import lockfile
 import logging
 import grp
 import optparse
@@ -127,7 +128,10 @@ class SMTPD(Signalable):
             self.log_file = None
         if self.config.pid_file:
             pidfile = BetterLockfile(self.config.pid_file)
-            pidfile.acquire()
+            try:
+                pidfile.acquire()
+            except lockfile.AlreadyLocked:
+                self.die("%s is already locked; another instance running?" % self.config.pid_file)
             pidfile.release()
         else:
             pidfile = None
@@ -158,6 +162,7 @@ class SMTPD(Signalable):
         else:
             level = logging.WARNING
         if self.config.log_file:
+            logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=fmt, level=level)
         else:
             logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
