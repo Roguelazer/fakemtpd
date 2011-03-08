@@ -80,7 +80,9 @@ class SMTPD(Signalable):
         sock.setblocking(0)
         sock.bind((self.config.address, self.config.port))
         sock.listen(128)
+        return sock
 
+    def create_loop(self, sock):
         io_loop = tornado.ioloop.IOLoop.instance()
         new_connection_handler = functools.partial(self.connection_ready, io_loop, sock)
         io_loop.add_handler(sock.fileno(), new_connection_handler, io_loop.READ)
@@ -96,6 +98,7 @@ class SMTPD(Signalable):
                 return
             c = Connection(io_loop, self.config.timeout)
             s = SMTPSession(c)
+            logging.debug("Connection from %s", address)
             c.connect(connection, address)
             self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(s))
@@ -129,7 +132,6 @@ class SMTPD(Signalable):
         else:
             pidfile = None
         if self.config.daemonize:
-            logging.info("about to daemonize")
             d = daemon.DaemonContext(files_preserve=[pidfile.file, self.log_file], pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
             self.on_stop(d.close)
             d.open()
@@ -147,21 +149,26 @@ class SMTPD(Signalable):
             socket.gethostname(),
             '%(process)s',
             '%(name)s',
-            '%levelname)%s',
+            '%(levelname)s',
             '%(message)s'))
         if self.config.verbose:
             level = logging.DEBUG
         else:
             level = logging.WARNING
-        logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
+        if self.config.log_file:
+            logging.basicConfig(stream=self.log_file, format=fmt, level=level)
+        else:
+            logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
 
     def _run(self, lockfile=None):
         """Does the actual work of running"""
         if lockfile:
             print >>lockfile.file, os.getpid()
             lockfile.file.flush()
-        logging.info("Starting")
-        io_loop = self.bind()
+        logging.info("Binding!")
+        sock = self.bind()
+        logging.info("Bound on port %d", sock.getsockname()[1])
+        io_loop = self.create_loop(sock)
         self.maybe_drop_privs()
         self.on_stop(io_loop.stop)
         io_loop.start()
