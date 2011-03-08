@@ -1,4 +1,5 @@
 import errno
+import logging
 import select
 import socket
 import sys
@@ -56,13 +57,16 @@ class Connection(Signalable):
     def _clear_timeout(self):
         if self.timeout > 0 and self._timeout_handle:
             self.io_loop.remove_timeout(self._timeout_handle)
+            self._timeout_handle = None
 
     def close(self):
         self.state = CLOSED
         self.stream.close()
         if self._timeout_handle:
             self.io_loop.remove_timeout(self._timeout_handle)
+            self._timeout_handle = None
         self._signal_closed()
+        logging.debug("Connection to %s closed", self.address)
 
     def _handle_data(self, data):
         self._signal_data(data)

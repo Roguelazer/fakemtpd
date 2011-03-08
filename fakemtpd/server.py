@@ -119,8 +119,9 @@ class SMTPD(Signalable):
         if self.config.log_file:
             try:
                 self.log_file = open(self.config.log_file, 'a')
+                self.on_stop(self.log_file.flush)
                 self.on_stop(self.log_file.close)
-            except:
+            except IOError, e:
                 self.die("Could not access log file %s" % self.config.log_file)
         else:
             self.log_file = None
@@ -128,7 +129,6 @@ class SMTPD(Signalable):
             pidfile = BetterLockfile(self.config.pid_file)
             pidfile.acquire()
             pidfile.release()
-            self.on_stop(pidfile.destroy)
         else:
             pidfile = None
         if self.config.daemonize:
@@ -136,8 +136,10 @@ class SMTPD(Signalable):
             self.on_stop(d.close)
             d.open()
         elif self.config.log_file:
-            sys.stdout = self.log_file
-            sys.stderr = self.log_file
+            os.dup2(self.log_file.fileno(), sys.stdout.fileno())
+            os.dup2(self.log_file.fileno(), sys.stderr.fileno())
+        if self.config.pid_file:
+            self.on_stop(pidfile.destroy)
         signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
         self._setup_logging()
@@ -156,7 +158,7 @@ class SMTPD(Signalable):
         else:
             level = logging.WARNING
         if self.config.log_file:
-            logging.basicConfig(stream=self.log_file, format=fmt, level=level)
+            logging.basicConfig(filename=self.config.log_file, format=fmt, level=level)
         else:
             logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
 
@@ -172,3 +174,4 @@ class SMTPD(Signalable):
         self.maybe_drop_privs()
         self.on_stop(io_loop.stop)
         io_loop.start()
+        logging.info("Shutting down")

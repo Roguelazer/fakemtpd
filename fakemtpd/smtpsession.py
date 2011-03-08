@@ -1,3 +1,4 @@
+import logging
 import re
 
 from fakemtpd.config import Config
@@ -49,6 +50,8 @@ class SMTPSession(object):
 
     def _handle_data(self, data):
         rv = False
+        data = data.rstrip('\r\n')
+        logging.debug(data)
         if self._state_all(data):
             return
         if self._state >= SMTP_HELO:
