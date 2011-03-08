@@ -136,8 +136,12 @@ class SMTPD(Signalable):
             pidfile.release()
         else:
             pidfile = None
+        # Do this before daemonizing so that the user can see any errors
+        # that may occur
+        sock = self.bind()
+        self.config.merge_sock(sock)
         if self.config.daemonize:
-            d = daemon.DaemonContext(files_preserve=[pidfile.file, self.log_file], pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
+            d = daemon.DaemonContext(files_preserve=[pidfile.file, self.log_file, sock], pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
             self.on_stop(d.close)
             d.open()
         elif self.config.log_file:
@@ -147,8 +151,16 @@ class SMTPD(Signalable):
             self.on_stop(pidfile.destroy)
         signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
+        # This needs to happen after daemonization
         self._setup_logging()
-        self._run(pidfile)
+        logging.info("Bound on port %d", self.config.port)
+        if pidfile:
+            print >>pidfile.file, os.getpid()
+            pidfile.file.flush()
+        io_loop = self.create_loop(sock)
+        self.maybe_drop_privs()
+        self.on_stop(io_loop.stop)
+        self._start(io_loop)
 
     def _setup_logging(self):
         fmt = '\t'.join((
@@ -167,20 +179,6 @@ class SMTPD(Signalable):
             logging.basicConfig(filename=self.config.log_file, format=fmt, level=level)
         else:
             logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
-
-    def _run(self, lockfile=None):
-        """Does the actual work of running"""
-        if lockfile:
-            print >>lockfile.file, os.getpid()
-            lockfile.file.flush()
-        logging.info("Binding!")
-        sock = self.bind()
-        self.config.merge_sock(sock)
-        logging.info("Bound on port %d", self.config.port)
-        io_loop = self.create_loop(sock)
-        self.maybe_drop_privs()
-        self.on_stop(io_loop.stop)
-        self._start(io_loop)
 
     def _start(self, io_loop):
         """Broken out so I can mock this in the tests better"""
