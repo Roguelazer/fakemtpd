@@ -35,7 +35,7 @@ class SMTPD(Signalable):
         parser.add_option('-H', '--hostname', dest='hostname', action='store', default=self.config.hostname,
                 help='Hostname to report as (default %default)')
         parser.add_option('-B', '--bind', dest='address', action='store', default=self.config.address,
-                help='Address to bind to (default "%default"')
+                help='Address to bind to (default "%default")')
         parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
                 help='Be more verbose')
         parser.add_option('--tls-cert', action='store', default=self.config.tls_cert,
