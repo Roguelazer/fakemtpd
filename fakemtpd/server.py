@@ -53,8 +53,6 @@ class SMTPD(Signalable):
         parser.add_option('--log-file', action='store', default=self.config.log_file,
                 help='File to write logs to (defaults to stdout)')
         (opts, _) = parser.parse_args()
-        if bool(opts.daemonize) and not bool(opts.pid_file):
-            parser.error('Cannot specify --daemonize xor --pid-file')
         return opts
 
     def die(self, message):
@@ -173,7 +171,7 @@ class SMTPD(Signalable):
         if self.config.verbose:
             level = logging.DEBUG
         else:
-            level = logging.WARNING
+            level = logging.INFO
         if self.config.log_file:
             logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=fmt, level=level)
