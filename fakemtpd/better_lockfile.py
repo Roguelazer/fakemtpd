@@ -1,5 +1,7 @@
 import fcntl
 import lockfile
+import logging
+import os
 
 class BetterLockfile(object):
     """
@@ -9,35 +11,60 @@ class BetterLockfile(object):
     def __init__(self, path):
         self.path = path
         self.lock_file = None
-        self.lock_file = open(self.path, 'w')
-        self._is_locked = False
+        try:
+            self.lock_file = open(self.path, 'w')
+        except:
+            raise lockfile.LockError()
+        self._has_lock = False
 
+    @property
     def file(self):
         """Get a handle to the underlying lock file (to write out data to)"""
         return self.lock_file
 
     def acquire(self):
+        logging.info("Locking %s", self.path)
         try:
-            fcntl.lockf(self.lock_file, fcntl.LOCK_EX|fcntl.LOCK_NB)
-            self._is_locked = True
-        except IOError:
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self._has_lock = True
+        except IOError, e:
+            print e
             raise lockfile.AlreadyLocked()
+        logging.info("Locked %s", self.path)
 
     def break_lock(self):
         """Can't break posix locks, sorry man"""
         raise lockfile.LockError()
 
+    @property
     def i_am_locking(self):
-        return False
+        return self._has_lock
 
     @property
     def is_locked(self):
-        return self._is_locked
+        if self._has_lock:
+            return True
+        try:
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+            return False
+        except IOError:
+            return True
 
     def release(self):
-        if self.is_locked:
-            fcntl.lockf(self.lock_file, fcntl.LOCK_UN)
-            self._is_locked = False
+        logging.info("Releasing lock on %s", self.path)
+        if self.i_am_locking:
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+            self._has_lock = False
+        else:
+            raise lockfile.NotLocked()
+        logging.info("Unlocked %s", self.path)
+
+    def destroy(self):
+        if self.i_am_locking:
+            self.release()
+        self.lock_file.close()
+        os.unlink(self.path)
 
     def __enter__(self):
         self.acquire()

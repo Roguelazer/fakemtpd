@@ -48,11 +48,11 @@ class SMTPD(Signalable):
         parser.add_option('-d', '--daemonize', action='store_true', default=self.config.daemonize,
                 help='Damonize (must also specify a pid_file)')
         parser.add_option('--pid-file', action='store', default=self.config.pid_file,
-                help='PID File (only makes sense if daemonize passed')
+                help='PID File')
         parser.add_option('--log-file', action='store', default=self.config.log_file,
                 help='File to write logs to (defaults to stdout)')
         (opts, _) = parser.parse_args()
-        if bool(opts.daemonize) ^ bool(opts.pid_file):
+        if bool(opts.daemonize) and not bool(opts.pid_file):
             parser.error('Cannot specify --daemonize xor --pid-file')
         return opts
 
@@ -116,29 +116,50 @@ class SMTPD(Signalable):
         if self.config.log_file:
             try:
                 self.log_file = open(self.config.log_file, 'a')
-                self.on_stop(lambda: self.log_file.close())
+                self.on_stop(self.log_file.close)
             except:
                 self.die("Could not access log file %s" % self.config.log_file)
-        if self.config.daemonize:
+        if self.config.pid_file:
             pidfile = BetterLockfile(self.config.pid_file)
             pidfile.acquire()
             pidfile.release()
-            logging.info("about to daemonize")
-            d = daemon.DaemonContext(pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
-            self.on_stop(lambda: d.close())
-            d.open()
-            logging.basicConfig(stream=sys.stderr,level=logging.DEBUG)
+            self.on_stop(pidfile.destroy)
         else:
+            pidfile = None
+        if self.config.daemonize:
+            logging.info("about to daemonize")
+            d = daemon.DaemonContext(files_preserve=[pidfile.file, self.log_file], pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
+            self.on_stop(d.close)
+            d.open()
+        elif self.config.log_file:
             sys.stdout = self.log_file
             sys.stderr = self.log_file
-            logging.basicConfig(stream=sys.stderr)
         signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
-        self._run()
+        self._setup_logging()
+        self._run(pidfile)
 
-    def _run(self):
+    def _setup_logging(self):
+        fmt = '\t'.join((
+            '%(asctime)s',
+            socket.gethostname(),
+            '%(process)s',
+            '%(name)s',
+            '%levelname)%s',
+            '%(message)s'))
+        if self.config.verbose:
+            level = logging.DEBUG
+        else:
+            level = logging.WARNING
+        logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
+
+    def _run(self, lockfile=None):
         """Does the actual work of running"""
+        if lockfile:
+            print >>lockfile.file, os.getpid()
+            lockfile.file.flush()
+        logging.info("Starting")
         io_loop = self.bind()
         self.maybe_drop_privs()
-        self.on_stop(lambda: io_loop.stop())
+        self.on_stop(io_loop.stop)
         io_loop.start()
