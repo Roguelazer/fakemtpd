@@ -46,12 +46,20 @@ class SMTPSession(object):
         self._state = SMTP_CONNECTED
 
     def _print_banner(self):
-        self.conn.write("220 %s %s %s\r\n" % (self.config.hostname, self.config.smtp_ver, self.config.mtd))
+        self._write("220 %s %s %s" % (self.config.hostname, self.config.smtp_ver, self.config.mtd))
+
+    @property
+    def _prefix(self):
+        return hex(hash(self))[2:8]
+
+    def _write(self, data, *args, **kwargs):
+        logging.debug('%s <<< %s', self._prefix, data)
+        self.conn.write(data + '\r\n', *args, **kwargs)
 
     def _handle_data(self, data):
         rv = False
         data = data.rstrip('\r\n')
-        logging.debug(data)
+        logging.debug('%s >>> %s', self._prefix, data)
         if self._state_all(data):
             return
         if self._state >= SMTP_HELO:
@@ -62,11 +70,11 @@ class SMTPSession(object):
             if not rv:
                 rv = self._state_helo(data)
         elif self._state == SMTP_HELO:
-            rv = self._state_helo(data) or self._state_after_helo(data)
+            rv = self._state_helo(data) or rv
         elif self._state == SMTP_MAIL_FROM:
             rv = self._state_mail_from(data)
         if rv == False:
-            self.conn.write("503 Commands out of sync or unrecognized\r\n")
+            self._write("503 Commands out of sync or unrecognized")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
     def _state_all(self, data):
@@ -75,15 +83,15 @@ class SMTPSession(object):
         noop_match = NOOP_COMMAND.match(data)
         help_match = HELP_COMMAND.match(data)
         if quit_match:
-            self.conn.write("221 2.0.0 Bye\r\n", self.conn.close, False)
+            self._write("221 2.0.0 Bye", self.conn.close, False)
             return True
         elif rset_match:
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
             self._message_state = {}
-            self.conn.write("250 2.0.0 Ok\r\n")
+            self._write("250 2.0.0 Ok")
             return True
         elif noop_match:
-            self.conn.write("250 2.0.0 Ok\r\n")
+            self._write("250 2.0.0 Ok")
             return True
         elif help_match:
             self.write_help()
@@ -94,15 +102,15 @@ class SMTPSession(object):
         ehlo_match = EHLO_COMMAND.match(data)
         if helo_match:
             self.remote = helo_match.group(1)
-            self.conn.write("250 %s\r\n" % self.config.hostname)
+            self._write("250 %s" % self.config.hostname)
             self._state = SMTP_HELO
             self._mode = 'HELO'
             return True
         elif ehlo_match:
             self.remote = ehlo_match.group(1)
-            self.conn.write("250-%s\r\n" % self.config.hostname)
+            self._write("250-%s" % self.config.hostname)
             if self.config.tls_cert:
-                self.conn.write("250 STARTTLS\r\n")
+                self._write("250 STARTTLS")
             self._state = SMTP_HELO
             self._mode = 'EHLO'
             return True
@@ -115,15 +123,15 @@ class SMTPSession(object):
         if mail_from_match:
             self._message_state = {}
             self._message_state['mail_from'] = mail_from_match.group(1)
-            self.conn.write("250 2.1.0 Ok\r\n")
+            self._write("250 2.1.0 Ok")
             self._state = SMTP_MAIL_FROM
             return True
         elif vrfy_match:
-            self.conn.write("502 5.5.1 VRFY command is disabled\r\n")
+            self._write("502 5.5.1 VRFY command is disabled")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
             return True
         elif expn_match:
-            self.conn.write("502 5.5.1 EXPN command is disabled\r\n")
+            self._write("502 5.5.1 EXPN command is disabled")
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
             return True
         return False
@@ -132,12 +140,12 @@ class SMTPSession(object):
         starttls_match = STARTTLS_COMMAND.match(data)
         if starttls_match:
             if self._encrypted:
-                self.conn.write("554 5.5.1 Error: TLS already active\r\n")
+                self._write("554 5.5.1 Error: TLS already active")
                 return True
             if self.config.tls_cert and self._mode == 'EHLO':
-                self.conn.write("220 Go Ahead\r\n", self._starttls)
+                self._write("220 Go Ahead", self._starttls)
             else:
-                self.conn.write('502 5.5.1 STARTTLS not supported in RFC821 mode (meant to say EHLO?)\r\n')
+                self._write('502 5.5.1 STARTTLS not supported in RFC821 mode (meant to say EHLO?)')
             return True
         return False
 
@@ -151,25 +159,25 @@ class SMTPSession(object):
         mail_from_match = MAIL_FROM_COMMAND.match(data)
         if rcpt_to_match:
             self._message_state.setdefault('rcpt_to', []).append(rcpt_to_match.group(1))
-            self.conn.write("554 5.7.1 <%s>: Relay access denied\r\n" % self._message_state['mail_from'])
+            self._write("554 5.7.1 <%s>: Relay access denied" % self._message_state['mail_from'])
             self._state = SMTP_HELO
             return True
         elif data_match:
-            self.conn.write("502 5.5.1 DATA command is disabled\r\n")
+            self._write("502 5.5.1 DATA command is disabled")
             self._state = SMTP_HELO
             return True
         elif mail_from_match:
-            self.conn.write("503 5.5.1 Error: nested MAIL command\r\n")
+            self._write("503 5.5.1 Error: nested MAIL command")
             self._state = SMTP_HELO
             return True
         return False
 
     def _print_timeout(self):
         self._timeout_handle = None
-        self.conn.write("421 4.4.2 %s Error: timeout exceeded\r\n" % self.config.hostname, self.conn.close, False)
+        self._write("421 4.4.2 %s Error: timeout exceeded" % self.config.hostname, self.conn.close, False)
 
     def write_help(self):
-        self.conn.write("250 Ok\r\n")
+        self._write("250 Ok")
         message = [
                 "HELO",
                 "EHLO",
@@ -186,5 +194,5 @@ class SMTPSession(object):
         if self.config.tls_cert:
             message.append("STARTTLS")
         for msg in message:
-            self.conn.write("250-HELP " + msg + "\r\n")
-        self.conn.write("250-HELP Ok\r\n")
+            self._write("250-HELP " + msg)
+        self._write("250-HELP Ok")
