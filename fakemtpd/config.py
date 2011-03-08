@@ -98,6 +98,10 @@ class Config(object):
             return 'Cannot specify to daemonize without a pid-file, or vice versa'
         return None
 
+    def merge_sock(self, sock):
+        self._config['port'] = int(sock.getsockname()[1])
+        self._config['address'] = sock.getsockname()[0]
+
     @property
     def port(self):
         return int(self._config['port'])

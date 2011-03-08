@@ -104,19 +104,20 @@ class SMTPD(Signalable):
             self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(s))
 
-    def run(self):
-        opts = self.handle_opts()
-        errors = self.config.merge_opts(opts)
-        if errors:
+    def run(self, handle_opts=True):
+        if handle_opts:
+            opts = self.handle_opts()
+            errors = self.config.merge_opts(opts)
             if errors:
-                self.die(errors)
-        if opts.gen_config:
-            self.config.write()
-            sys.exit(0)
-        if opts.config_path:
-            errors = self.config.read_file(opts.config_path)
-            if errors:
-                self.die(errors)
+                if errors:
+                    self.die(errors)
+            if opts.gen_config:
+                self.config.write()
+                sys.exit(0)
+            if opts.config_path:
+                errors = self.config.read_file(opts.config_path)
+                if errors:
+                    self.die(errors)
         if self.config.log_file:
             try:
                 self.log_file = open(self.config.log_file, 'a')
@@ -174,9 +175,14 @@ class SMTPD(Signalable):
             lockfile.file.flush()
         logging.info("Binding!")
         sock = self.bind()
-        logging.info("Bound on port %d", sock.getsockname()[1])
+        self.config.merge_sock(sock)
+        logging.info("Bound on port %d", self.config.port)
         io_loop = self.create_loop(sock)
         self.maybe_drop_privs()
         self.on_stop(io_loop.stop)
+        self._start(io_loop)
+
+    def _start(self, io_loop):
+        """Broken out so I can mock this in the tests better"""
         io_loop.start()
         logging.info("Shutting down")
