@@ -119,6 +119,8 @@ class SMTPD(Signalable):
                 self.on_stop(self.log_file.close)
             except:
                 self.die("Could not access log file %s" % self.config.log_file)
+        else:
+            self.log_file = None
         if self.config.pid_file:
             pidfile = BetterLockfile(self.config.pid_file)
             pidfile.acquire()

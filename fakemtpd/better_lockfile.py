@@ -12,7 +12,7 @@ class BetterLockfile(object):
         self.path = path
         self.lock_file = None
         try:
-            self.lock_file = open(self.path, 'w')
+            self.lock_file = open(self.path, 'a')
         except:
             raise lockfile.LockError()
         self._has_lock = False
@@ -70,5 +70,5 @@ class BetterLockfile(object):
         self.acquire()
         return self
 
-    def __exit__(self):
+    def __exit__(self, *args):
         self.release()
