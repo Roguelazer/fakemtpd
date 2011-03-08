@@ -6,7 +6,7 @@ import os
 class BetterLockfile(object):
     """
     A lockfile (matching the specification of the builtin lockfile class)
-    based off of lockf. Only uses a single lock file rather than one per process/thread.
+    based off of flock. Only uses a single lock file rather than one per process/thread.
     """
     def __init__(self, path):
         self.path = path
