@@ -2,6 +2,7 @@ from __future__ import with_statement
 
 import copy
 import new
+import os.path
 import socket
 import yaml
 
@@ -88,6 +89,10 @@ class Config(object):
         print yaml.dump(self._config, default_flow_style=False),
 
     def _validate(self):
+        if self._config['pid_file'] and not os.path.isabs(self._config['pid_file']):
+            return "PID file path must be absolute"
+        if self._config['log_file'] and not os.path.isabs(self._config['log_file']):
+            return "Log file path must be absolute"
         if self._config['smtp_ver'] not in ('SMTP', 'ESMTP'):
             return "smtp_ver must be in ('SMTP', 'ESMTP')"
         if bool(self._config['tls_cert']) ^ bool(self._config['tls_key']):

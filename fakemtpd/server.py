@@ -19,12 +19,19 @@ from fakemtpd.smtpsession import SMTPSession
 from fakemtpd.signals import Signalable
 
 class SMTPD(Signalable):
-    _signals = ('stop',)
+    _signals = ('stop', 'hup')
 
     def __init__(self):
         super(SMTPD, self).__init__()
         self.connections = []
         self.config = Config.instance()
+        self._log_fmt = '\t'.join((
+            '%(asctime)s',
+            socket.gethostname(),
+            '%(process)s',
+            '%(name)s',
+            '%(levelname)s',
+            '%(message)s'))
 
     def handle_opts(self):
         parser = optparse.OptionParser()
@@ -58,20 +65,29 @@ class SMTPD(Signalable):
     def die(self, message):
         print >>sys.stderr, message
         sys.exit(1)
-    
-    def maybe_drop_privs(self):
+
+    def get_uid_gid(self):
+        uid = None
+        gid = None
         if self.config.group:
             try:
                 data = grp.getgrnam(self.config.group)
-                os.setegid(data.gr_gid)
+                gid = data.gr_gid
             except KeyError:
                 self.die('Group %s not found, unable to drop privs, aborting' % self.config.group)
         if self.config.user:
             try:
                 data = pwd.getpwnam(self.config.user)
-                os.seteuid(data.pw_uid)
+                uid = data.pw_uid
             except KeyError:
                 self.die('User %s not found, unable to drop privs, aborting' % self.config.user)
+        return (uid, gid)
+
+    def maybe_drop_privs(self, uid, gid):
+        if self.config.group and gid:
+            os.setgid(gid)
+        if self.config.user and uid:
+            os.setuid(uid)
 
     def bind(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -116,17 +132,20 @@ class SMTPD(Signalable):
                 errors = self.config.read_file(opts.config_path)
                 if errors:
                     self.die(errors)
+        (uid, gid) = self.get_uid_gid()
         if self.config.log_file:
+            self._check_create_log_file(uid, gid)
             try:
                 self.log_file = open(self.config.log_file, 'a')
-                self.on_stop(self.log_file.flush)
-                self.on_stop(self.log_file.close)
+                self.on_stop(lambda: self.log_file.flush())
+                self.on_stop(lambda: self.log_file.close())
+                self.on_hup(lambda: self._reopen_log_files())
             except IOError, e:
                 self.die("Could not access log file %s" % self.config.log_file)
         else:
             self.log_file = None
         if self.config.pid_file:
-            pidfile = BetterLockfile(self.config.pid_file)
+            pidfile = BetterLockfile(os.path.realpath(self.config.pid_file))
             try:
                 pidfile.acquire()
             except lockfile.AlreadyLocked:
@@ -149,6 +168,7 @@ class SMTPD(Signalable):
             self.on_stop(pidfile.destroy)
         signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
+        signal.signal(signal.SIGHUP, lambda signum, frame: self._signal_hup())
         # This needs to happen after daemonization
         self._setup_logging()
         logging.info("Bound on port %d", self.config.port)
@@ -156,29 +176,52 @@ class SMTPD(Signalable):
             print >>pidfile.file, os.getpid()
             pidfile.file.flush()
         io_loop = self.create_loop(sock)
-        self.maybe_drop_privs()
+        self.maybe_drop_privs(uid, gid)
         self.on_stop(io_loop.stop)
+        logging.getLogger().handlers[0].flush()
         self._start(io_loop)
 
+    def _check_create_log_file(self, uid, gid):
+        """Create the log file if necessary, and give it the right owner"""
+        if not os.path.exists(self.config.log_file):
+            if not os.path.exists(os.path.realpath(os.path.dirname(self.config.log_file))):
+                self.die("[setting up logging] No such directory '%s'" % os.path.realpath(os.path.dirname(self.config.log_file)))
+            try:
+                f = open(self.config.log_file, "w")
+                if uid:
+                    os.fchown(f.fileno(), uid, -1)
+                if gid:
+                    os.fchown(f.fileno(), -1, gid)
+                f.close()
+            except IOError:
+                self.die("Cannot create file %s" % self.config.log_file)
+
     def _setup_logging(self):
-        fmt = '\t'.join((
-            '%(asctime)s',
-            socket.gethostname(),
-            '%(process)s',
-            '%(name)s',
-            '%(levelname)s',
-            '%(message)s'))
         if self.config.verbose:
             level = logging.DEBUG
         else:
             level = logging.INFO
         if self.config.log_file:
             logging.getLogger().handlers = []
-            logging.basicConfig(filename=self.config.log_file, format=fmt, level=level)
+            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=level)
         else:
-            logging.basicConfig(stream=sys.stderr, format=fmt, level=level)
+            logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=level)
+
+    def _reopen_log_files(self):
+        """Handle a HUP to reload logging"""
+        if self.config.log_file:
+            logging.info("re-opening log files")
+            if self.config.verbose:
+                level = logging.DEBUG
+            else:
+                level = logging.INFO
+            logging.getLogger().handlers = []
+            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=level)
+            self.log_file.close()
+            self.log_file = open(self.config.log_file, 'a')
 
     def _start(self, io_loop):
         """Broken out so I can mock this in the tests better"""
         io_loop.start()
         logging.info("Shutting down")
+        logging.shutdown()
