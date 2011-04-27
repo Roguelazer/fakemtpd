@@ -1,0 +1,14 @@
+address: ''
+daemonize: true
+group: nogroup
+hostname: localhost
+log_file: /var/log/fakemtpd/fakemtpd.log
+mtd: FakeMTPD
+pid_file: /var/run/fakemtpd.pid
+port: 25
+smtp_ver: ESMTP
+timeout: 30
+tls_cert: null
+tls_key: null
+user: nobody
+verbose: false
