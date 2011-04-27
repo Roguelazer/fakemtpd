@@ -219,6 +219,8 @@ class SMTPD(Signalable):
             logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=level)
             self.log_file.close()
             self.log_file = open(self.config.log_file, 'a')
+            os.dup2(self.log_file.fileno(), sys.stdout.fileno())
+            os.dup2(self.log_file.fileno(), sys.stderr.fileno())
 
     def _start(self, io_loop):
         """Broken out so I can mock this in the tests better"""
