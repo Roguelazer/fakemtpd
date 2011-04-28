@@ -19,7 +19,7 @@ from fakemtpd.smtpsession import SMTPSession
 from fakemtpd.signals import Signalable
 
 class SMTPD(Signalable):
-    _signals = ('stop', 'hup')
+    _signals = ('stop', 'hup', 'stop_user')
 
     def __init__(self):
         super(SMTPD, self).__init__()
@@ -84,10 +84,24 @@ class SMTPD(Signalable):
         return (uid, gid)
 
     def maybe_drop_privs(self, uid, gid):
+        did_something = False
         if self.config.group and gid:
-            os.setgid(gid)
+            os.setegid(gid)
+            did_something = True
         if self.config.user and uid:
-            os.setuid(uid)
+            os.seteuid(uid)
+            did_something = True
+        if did_something:
+            self.on_stop(self._restore_privs)
+        else:
+            self.on_stop(self._signal_stop_user)
+
+    def _restore_privs(self):
+        if self.config.group:
+            os.setegid(os.getgid())
+        if self.config.user:
+            os.seteuid(os.getuid())
+        self._signal_stop_user()
 
     def bind(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -159,13 +173,13 @@ class SMTPD(Signalable):
         self.config.merge_sock(sock)
         if self.config.daemonize:
             d = daemon.DaemonContext(files_preserve=[pidfile.file, self.log_file, sock], pidfile=pidfile, stdout=self.log_file, stderr=self.log_file)
-            self.on_stop(d.close)
+            self.on_stop_user(d.close)
             d.open()
         elif self.config.log_file:
             os.dup2(self.log_file.fileno(), sys.stdout.fileno())
             os.dup2(self.log_file.fileno(), sys.stderr.fileno())
         if self.config.pid_file:
-            self.on_stop(pidfile.destroy)
+            self.on_stop_user(pidfile.destroy)
         signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
         signal.signal(signal.SIGHUP, lambda signum, frame: self._signal_hup())
