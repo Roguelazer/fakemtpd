@@ -10,10 +10,10 @@ SMTP_HELO = 2
 SMTP_MAIL_FROM = 3
 
 # Command REs
-MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<(.+)>', re.I)
+MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<([^>]*)>', re.I)
 HELO_COMMAND=re.compile(r'^HELO\s+(.*)', re.I)
 EHLO_COMMAND=re.compile(r'^EHLO\s+(.*)', re.I)
-RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<(.+)>', re.I)
+RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<([^>]+)>', re.I)
 VRFY_COMMAND=re.compile(r'^VRFY (<?.+>?)', re.I)
 QUIT_COMMAND=re.compile(r'^QUIT', re.I)
 NOOP_COMMAND=re.compile(r'^NOOP', re.I)
