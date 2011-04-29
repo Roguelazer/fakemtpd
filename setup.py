@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
         name="fakemtpd",
-        version="0.1.3",
+        version="0.1.4",
         provides="fakemtpd",
         author="James Brown",
         author_email="jbrown@yelp.com",
