@@ -11,4 +11,4 @@ timeout: 30
 tls_cert: null
 tls_key: null
 user: nobody
-verbose: false
+verbose: 0
