@@ -43,7 +43,7 @@ class Config(object):
             'user': None,
             'group': None,
             'hostname': socket.gethostname(),
-            'verbose': False,
+            'verbose': 0,
             'mtd': 'FakeMTPD',
             'smtp_ver': 'SMTP',
             'tls_cert': None,

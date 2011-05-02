@@ -13,6 +13,8 @@ from fakemtpd.signals import Signalable
 CLOSED = "closed"
 CONNECTED = "connected"
 
+log = logging.getLogger("connection")
+
 class Connection(Signalable):
     """Wrapper around tornado.iostream.IOStream"""
     _signals = ["connected", "closed", "timeout", "data"]
@@ -25,6 +27,7 @@ class Connection(Signalable):
         self._timeout_handle = None
 
     def connect(self, sock, address):
+        log.info("Connecting to %s", address)
         self.sock = sock
         self.address = address
         self.sock.setblocking(0)
@@ -38,6 +41,7 @@ class Connection(Signalable):
 
     def starttls(self, **ssl_options):
         assert self.state == CONNECTED
+        log.debug("starting TLS session")
         self.sock = ssl.wrap_socket(self.sock, server_side=True,
                 do_handshake_on_connect=False, **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
@@ -66,7 +70,7 @@ class Connection(Signalable):
             self.io_loop.remove_timeout(self._timeout_handle)
             self._timeout_handle = None
         self._signal_closed()
-        logging.debug("Connection to %s closed", self.address)
+        log.debug("Connection to %s closed", self.address)
 
     def _handle_data(self, data):
         self._signal_data(data)

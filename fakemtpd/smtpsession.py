@@ -23,6 +23,8 @@ HELP_COMMAND=re.compile(r'^HELP', re.I)
 EXPN_COMMAND=re.compile(r'^EXPN', re.I)
 STARTTLS_COMMAND=re.compile(r'^STARTTLS', re.I)
 
+log = logging.getLogger("session")
+
 class SMTPSession(object):
     """Implement the SMTP protocol on top of a Connection"""
 
@@ -35,6 +37,7 @@ class SMTPSession(object):
         self.conn.on_connected(self._print_banner)
         self.conn.on_timeout(self._print_timeout)
         self.conn.on_data(self._handle_data)
+        self.conn.on_closed(lambda: logging.info("Closed session with %s", self.remote))
         self.config = Config.instance()
         self.remote = ''
         self._state = SMTP_DISCONNECTED
@@ -53,13 +56,13 @@ class SMTPSession(object):
         return hex(hash(self))[2:8]
 
     def _write(self, data, *args, **kwargs):
-        logging.debug('%s <<< %s', self._prefix, data)
+        log.debug('%s <<< %s', self._prefix, data)
         self.conn.write(data + '\r\n', *args, **kwargs)
 
     def _handle_data(self, data):
         rv = False
         data = data.rstrip('\r\n')
-        logging.debug('%s >>> %s', self._prefix, data)
+        log.debug('%s >>> %s', self._prefix, data)
         if self._state_all(data):
             return
         if self._state >= SMTP_HELO:
@@ -75,6 +78,7 @@ class SMTPSession(object):
             rv = self._state_mail_from(data)
         if rv == False:
             self._write("503 Commands out of sync or unrecognized")
+            log.warn("Bad command '%s' from '%s'" % (data, self.conn.address))
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
     def _state_all(self, data):

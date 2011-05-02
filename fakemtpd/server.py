@@ -43,7 +43,7 @@ class SMTPD(Signalable):
                 help='Hostname to report as (default %default)')
         parser.add_option('-B', '--bind', dest='address', action='store', default=self.config.address,
                 help='Address to bind to (default "%default")')
-        parser.add_option('-v', '--verbose', action='store_true', default=self.config.verbose,
+        parser.add_option('-v', '--verbose', action='count', default=self.config.verbose,
                 help='Be more verbose')
         parser.add_option('--tls-cert', action='store', default=self.config.tls_cert,
                 help='Certificate to use for TLS')
@@ -127,7 +127,7 @@ class SMTPD(Signalable):
                 return
             c = Connection(io_loop, self.config.timeout)
             s = SMTPSession(c)
-            logging.debug("Connection from %s", address)
+            logging.debug("new connection")
             c.connect(connection, address)
             self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(s))
@@ -210,27 +210,29 @@ class SMTPD(Signalable):
             except IOError:
                 self.die("Cannot create file %s" % self.config.log_file)
 
-    def _setup_logging(self):
-        if self.config.verbose:
+    @property
+    def _log_level(self):
+        if self.config.verbose >= 2:
             level = logging.DEBUG
-        else:
+        elif self.config.verbose >= 1:
             level = logging.INFO
+        else:
+            level = logging.WARN
+        return level
+
+    def _setup_logging(self):
         if self.config.log_file:
             logging.getLogger().handlers = []
-            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=level)
+            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
         else:
-            logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=level)
+            logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=self._log_level)
 
     def _reopen_log_files(self):
         """Handle a HUP to reload logging"""
         if self.config.log_file:
-            logging.info("re-opening log files")
-            if self.config.verbose:
-                level = logging.DEBUG
-            else:
-                level = logging.INFO
+            logging.warn("re-opening log files")
             logging.getLogger().handlers = []
-            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=level)
+            logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
             self.log_file.close()
             self.log_file = open(self.config.log_file, 'a')
             os.dup2(self.log_file.fileno(), sys.stdout.fileno())
@@ -239,5 +241,5 @@ class SMTPD(Signalable):
     def _start(self, io_loop):
         """Broken out so I can mock this in the tests better"""
         io_loop.start()
-        logging.info("Shutting down")
+        logging.warn("Shutting down")
         logging.shutdown()
