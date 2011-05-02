@@ -130,7 +130,7 @@ class SMTPD(Signalable):
             logging.debug("new connection")
             c.connect(connection, address)
             self.connections.append(s)
-            c.on_closed(lambda: self.connections.remove(s))
+            c.on_closed(lambda: self.connections.remove(s) if s in self.connections else None)
 
     def run(self, handle_opts=True):
         if handle_opts:

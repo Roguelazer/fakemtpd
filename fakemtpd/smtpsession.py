@@ -23,7 +23,7 @@ HELP_COMMAND=re.compile(r'^HELP', re.I)
 EXPN_COMMAND=re.compile(r'^EXPN', re.I)
 STARTTLS_COMMAND=re.compile(r'^STARTTLS', re.I)
 
-log = logging.getLogger("session")
+log = logging.getLogger("smtpsession")
 
 class SMTPSession(object):
     """Implement the SMTP protocol on top of a Connection"""
@@ -37,7 +37,6 @@ class SMTPSession(object):
         self.conn.on_connected(self._print_banner)
         self.conn.on_timeout(self._print_timeout)
         self.conn.on_data(self._handle_data)
-        self.conn.on_closed(lambda: logging.info("Closed session with %s", self.remote))
         self.config = Config.instance()
         self.remote = ''
         self._state = SMTP_DISCONNECTED
@@ -78,7 +77,7 @@ class SMTPSession(object):
             rv = self._state_mail_from(data)
         if rv == False:
             self._write("503 Commands out of sync or unrecognized")
-            log.warn("Bad command '%s' from '%s'" % (data, self.conn.address))
+            log.warn("Bad command '%s' from %s" % (data, self.conn.address))
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
 
     def _state_all(self, data):
@@ -164,6 +163,7 @@ class SMTPSession(object):
         if rcpt_to_match:
             self._message_state.setdefault('rcpt_to', []).append(rcpt_to_match.group(1))
             self._write("554 5.7.1 <%s>: Relay access denied" % self._message_state['mail_from'])
+            log.info("Relay access denied to %s (%s)", self.conn.address, self._message_state['mail_from'])
             self._state = SMTP_HELO
             return True
         elif data_match:

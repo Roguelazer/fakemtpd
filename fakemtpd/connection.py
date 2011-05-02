@@ -1,4 +1,5 @@
 import errno
+import functools
 import logging
 import select
 import socket
@@ -33,7 +34,7 @@ class Connection(Signalable):
         self.sock.setblocking(0)
         self.state = CONNECTED
         self.stream = tornado.iostream.IOStream(self.sock, io_loop=self.io_loop)
-        self.stream.set_close_callback(self._clear_timeout)
+        self.stream.set_close_callback(self.close)
         self.on_timeout(self._timeout, first=True)
         self._set_timeout()
         self._signal_connected()
@@ -46,7 +47,7 @@ class Connection(Signalable):
                 do_handshake_on_connect=False, **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
         self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
-        self.stream.set_close_callback(self._clear_timeout)
+        self.stream.set_close_callback(self.close)
         self._read()
 
     def _timeout(self):
@@ -58,26 +59,27 @@ class Connection(Signalable):
                 self.io_loop.remove_timeout(self._timeout_handle)
             self._timeout_handle = self.io_loop.add_timeout(time.time() + self.timeout, self._signal_timeout)
 
-    def _clear_timeout(self):
-        if self.timeout > 0 and self._timeout_handle:
-            self.io_loop.remove_timeout(self._timeout_handle)
-            self._timeout_handle = None
-
     def close(self):
+        if self.state == CLOSED:
+            return
         self.state = CLOSED
-        self.stream.close()
+        if not self.stream.closed():
+            self.stream.close()
         if self._timeout_handle:
             self.io_loop.remove_timeout(self._timeout_handle)
             self._timeout_handle = None
         self._signal_closed()
-        log.debug("Connection to %s closed", self.address)
+        log.info("Connection to %s closed", self.address)
 
     def _handle_data(self, data):
         self._signal_data(data)
         self._read()
 
     def _read(self):
-        self.stream.read_until("\n", self._handle_data)
+        # Add this callback in a roundabout way to work around a regression
+        # in Tornado 1.2 that causes stack overflows if you do this the
+        # naive way
+        self.stream.io_loop.add_callback(functools.partial(self.stream.read_until, "\n", self._handle_data))
         self._set_timeout()
 
     def write(self, data, callback=None, st=True):
