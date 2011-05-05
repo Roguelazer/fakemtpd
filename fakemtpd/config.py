@@ -34,12 +34,19 @@ class Config(object):
 
     __metaclass__ = _ParamsAsProps
 
+    """Allowable logging methods"""
+    logging_methods = ('stderr', 'file', 'syslog')
+
+    """Allowable SMTP versions"""
+    smtp_versions = ('SMTP', 'ESMTP')
+
+
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
     # command-line options
     _parameters = {
             'port': 25,
-            'address': '',
+            'address': '0.0.0.0',
             'user': None,
             'group': None,
             'hostname': socket.gethostname(),
@@ -52,6 +59,10 @@ class Config(object):
             'daemonize': False,
             'pid_file': None,
             'log_file': None,
+            'logging_method': 'stderr',
+            'syslog_host': 'localhost',
+            'syslog_port': 514,
+            'syslog_domain_socket': None
     }
 
     def __init__(self):
@@ -95,12 +106,23 @@ class Config(object):
             return "Log file path must be absolute"
         if self._config['smtp_ver'] not in ('SMTP', 'ESMTP'):
             return "smtp_ver must be in ('SMTP', 'ESMTP')"
+        if self._config['logging_method'] not in self.logging_methods:
+            return "logging_method must be in (%s)" % ",".join(self.logging_methods)
+        if self._config['syslog_domain_socket'] and self._config['syslog_hostname']:
+            return "cannot specify both syslog_domain_socket and syslog_hostname"
         if bool(self._config['tls_cert']) ^ bool(self._config['tls_key']):
             return "Cannot specify a certificate without a key, or vice versa"
         if self._config['tls_cert']:
             self._config['smtp_ver'] = 'ESMTP'
         if bool(self._config['daemonize']) and not bool(self._config['pid_file']):
             return 'Cannot specify to daemonize without a pid-file, or vice versa'
+        if self._config['logging_method'] == 'file':
+            if not self._config['log_file']:
+                return "cannot specify logging method 'file' without a log file"
+        if self._config['logging_method'] == 'syslog':
+            if not self._config['syslog_domain_socket']:
+                if bool(self._config['syslog_host']) ^ bool(self._config['syslog_port']):
+                    return "must specify both a syslog host and a port"
         return None
 
     def merge_sock(self, sock):
@@ -110,6 +132,15 @@ class Config(object):
     @property
     def port(self):
         return int(self._config['port'])
+
+    @property
+    def syslog_connection(self):
+        if self._config.get('logging_method', '') != 'syslog':
+            return None
+        elif self._config.get('syslog_domain_socket'):
+            return syslog_file
+        else:
+            return (self._config['syslog_host'], self._config['syslog_port'])
 
     def __contains__(self, attr):
         """x.__contains__(foo) <==> foo in x"""

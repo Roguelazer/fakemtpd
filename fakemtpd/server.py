@@ -3,6 +3,7 @@ import errno
 import functools
 import lockfile
 import logging
+import logging.handlers
 import grp
 import optparse
 import os
@@ -52,14 +53,21 @@ class SMTPD(Signalable):
                 help='Key to use for TLS')
         parser.add_option('--gen-config', action='store_true', default=False,
                 help='Print out a config file with all parameters')
-        parser.add_option('--smtp-ver', action='store', default=self.config.smtp_ver,
-                help='SMTP or ESMTP')
+        parser.add_option('--smtp-ver', action='store', type='choice', choices=self.config.smtp_versions, default=self.config.smtp_ver,
+                help='SMTP version (one of (%s)), default %s' % (','.join(self.config.smtp_versions), self.config.smtp_ver))
         parser.add_option('-d', '--daemonize', action='store_true', default=self.config.daemonize,
                 help='Damonize (must also specify a pid_file)')
         parser.add_option('--pid-file', action='store', default=self.config.pid_file,
                 help='PID File')
+        parser.add_option('--logging-method', type='choice', action='store', default=self.config.logging_method,
+                choices=self.config.logging_methods,
+                help="Logging method, must be one of (%s), default %s" % (','.join(self.config.logging_methods), self.config.logging_method))
         parser.add_option('--log-file', action='store', default=self.config.log_file,
-                help='File to write logs to (defaults to stdout)')
+                help="File to write logs to (only valid if logging method is 'file')")
+        parser.add_option('--syslog-host', action='store', default=self.config.syslog_host,
+                help="Syslog host to write to (default %default, only valid if logging method is 'syslog')")
+        parser.add_option('--syslog-port', type=int, action='store', default=self.config.syslog_port,
+                help="Syslog port to write to (default %default, only valid of logging method is 'syslog')")
         (opts, _) = parser.parse_args()
         return opts
 
@@ -150,7 +158,7 @@ class SMTPD(Signalable):
         (uid, gid) = self.get_uid_gid()
         self.uid = uid
         self.gid = gid
-        if self.config.log_file:
+        if self.config.logging_method == 'file':
             self._check_create_log_file(uid, gid)
             try:
                 self.log_file = open(self.config.log_file, 'a')
@@ -224,9 +232,18 @@ class SMTPD(Signalable):
         return level
 
     def _setup_logging(self):
-        if self.config.log_file:
+        if self.config.logging_method == 'file':
             logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
+        elif self.config.logging_method == 'syslog':
+            logging.getLogger().handlers = []
+            facility = logging.handlers.SysLogHandler.LOG_MAIL
+            if self.config.syslog_domain_socket:
+                syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
+            else:
+                syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
+            print >>sys.stderr, "Adding %s" % syslog_handler
+            logging.getLogger().addHandler(syslog_handler)
         else:
             logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=self._log_level)
 
