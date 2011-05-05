@@ -28,6 +28,7 @@ class SMTPD(Signalable):
         self.config = Config.instance()
         self.uid = self.gid = None
         self._log_fmt = '\t'.join((
+            'fakemtpd',
             '%(asctime)s',
             socket.gethostname(),
             '%(process)s',
