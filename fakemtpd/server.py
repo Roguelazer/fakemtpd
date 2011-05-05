@@ -64,6 +64,8 @@ class SMTPD(Signalable):
                 help="Logging method, must be one of (%s), default %s" % (','.join(self.config.logging_methods), self.config.logging_method))
         parser.add_option('--log-file', action='store', default=self.config.log_file,
                 help="File to write logs to (only valid if logging method is 'file')")
+        parser.add_option('--syslog-domain-socket', action='store', default=self.config.syslog_domain_socket,
+                help="Syslog domain socket to write to (default %default, overrides syslog host if provided)")
         parser.add_option('--syslog-host', action='store', default=self.config.syslog_host,
                 help="Syslog host to write to (default %default, only valid if logging method is 'syslog')")
         parser.add_option('--syslog-port', type=int, action='store', default=self.config.syslog_port,

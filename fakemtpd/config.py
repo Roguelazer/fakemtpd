@@ -108,8 +108,6 @@ class Config(object):
             return "smtp_ver must be in ('SMTP', 'ESMTP')"
         if self._config['logging_method'] not in self.logging_methods:
             return "logging_method must be in (%s)" % ",".join(self.logging_methods)
-        if self._config['syslog_domain_socket'] and self._config['syslog_hostname']:
-            return "cannot specify both syslog_domain_socket and syslog_hostname"
         if bool(self._config['tls_cert']) ^ bool(self._config['tls_key']):
             return "Cannot specify a certificate without a key, or vice versa"
         if self._config['tls_cert']:
@@ -138,7 +136,7 @@ class Config(object):
         if self._config.get('logging_method', '') != 'syslog':
             return None
         elif self._config.get('syslog_domain_socket'):
-            return syslog_file
+            return self._config['syslog_domain_socket']
         else:
             return (self._config['syslog_host'], self._config['syslog_port'])
 
