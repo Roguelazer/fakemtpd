@@ -25,6 +25,7 @@ class SMTPD(Signalable):
         super(SMTPD, self).__init__()
         self.connections = []
         self.config = Config.instance()
+        self.uid = self.gid = None
         self._log_fmt = '\t'.join((
             '%(asctime)s',
             socket.gethostname(),
@@ -83,17 +84,17 @@ class SMTPD(Signalable):
                 self.die('User %s not found, unable to drop privs, aborting' % self.config.user)
         return (uid, gid)
 
-    def maybe_drop_privs(self, uid, gid):
+    def maybe_drop_privs(self, add_signals=True):
         did_something = False
-        if self.config.group and gid:
-            os.setegid(gid)
+        if self.config.group and self.gid:
+            os.setegid(self.gid)
             did_something = True
-        if self.config.user and uid:
-            os.seteuid(uid)
+        if self.config.user and self.uid:
+            os.seteuid(self.uid)
             did_something = True
-        if did_something:
+        if did_something and add_signals:
             self.on_stop(self._restore_privs)
-        else:
+        elif add_signals:
             self.on_stop(self._signal_stop_user)
 
     def _restore_privs(self):
@@ -147,6 +148,8 @@ class SMTPD(Signalable):
                 if errors:
                     self.die(errors)
         (uid, gid) = self.get_uid_gid()
+        self.uid = uid
+        self.gid = gid
         if self.config.log_file:
             self._check_create_log_file(uid, gid)
             try:
@@ -190,7 +193,7 @@ class SMTPD(Signalable):
             print >>pidfile.file, os.getpid()
             pidfile.file.flush()
         io_loop = self.create_loop(sock)
-        self.maybe_drop_privs(uid, gid)
+        self.maybe_drop_privs()
         self.on_stop(io_loop.stop)
         logging.getLogger().handlers[0].flush()
         self._start(io_loop)
@@ -231,12 +234,14 @@ class SMTPD(Signalable):
         """Handle a HUP to reload logging"""
         if self.config.log_file:
             logging.warn("re-opening log files")
+            self._restore_privs()
             logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
             self.log_file.close()
             self.log_file = open(self.config.log_file, 'a')
             os.dup2(self.log_file.fileno(), sys.stdout.fileno())
             os.dup2(self.log_file.fileno(), sys.stderr.fileno())
+            self.maybe_drop_privs(add_signals=False)
 
     def _start(self, io_loop):
         """Broken out so I can mock this in the tests better"""

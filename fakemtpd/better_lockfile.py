@@ -65,7 +65,8 @@ class BetterLockfile(object):
                 self.release()
             self.lock_file.close()
         finally:
-            os.unlink(self.path)
+            if os.path.exists(self.path):
+                os.unlink(self.path)
 
     def __enter__(self):
         self.acquire()
