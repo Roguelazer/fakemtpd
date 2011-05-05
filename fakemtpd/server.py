@@ -242,7 +242,8 @@ class SMTPD(Signalable):
                 syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
             else:
                 syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
-            print >>sys.stderr, "Adding %s" % syslog_handler
+            syslog_handler.setLevel(self._log_level)
+            syslog_handler.addFormatter(logging.Formatter(self._log_format))
             logging.getLogger().addHandler(syslog_handler)
         else:
             logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=self._log_level)
