@@ -243,7 +243,7 @@ class SMTPD(Signalable):
             else:
                 syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
             syslog_handler.setLevel(self._log_level)
-            syslog_handler.addFormatter(logging.Formatter(self._log_format))
+            syslog_handler.setFormatter(logging.Formatter(self._log_fmt))
             logging.getLogger().addHandler(syslog_handler)
         else:
             logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=self._log_level)
