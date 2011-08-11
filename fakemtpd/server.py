@@ -27,14 +27,6 @@ class SMTPD(Signalable):
         self.connections = []
         self.config = Config.instance()
         self.uid = self.gid = None
-        self._log_fmt = '\t'.join((
-            'fakemtpd',
-            '%(asctime)s',
-            socket.gethostname(),
-            '%(process)s',
-            '%(name)s',
-            '%(levelname)s',
-            '%(message)s'))
 
     def handle_opts(self):
         parser = optparse.OptionParser()
@@ -170,8 +162,27 @@ class SMTPD(Signalable):
                 self.on_hup(lambda: self._reopen_log_files())
             except IOError, e:
                 self.die("Could not access log file %s" % self.config.log_file)
+            self._log_fmt = '\t'.join((
+                'fakemtpd',
+                '%(asctime)s',
+                socket.gethostname(),
+                '%(process)s',
+                '%(name)s',
+                '%(levelname)s',
+                '%(message)s'))
         else:
             self.log_file = None
+        if self.config.logging_method == 'syslog':
+            self._log_fmt = 'fakemtpd[%(process)d]: %(message)s'
+        else:
+            self._log_fmt = '\t'.join((
+                'fakemtpd',
+                '%(asctime)s',
+                socket.gethostname(),
+                '%(process)s',
+                '%(name)s',
+                '%(levelname)s',
+                '%(message)s'))
         if self.config.pid_file:
             pidfile = BetterLockfile(os.path.realpath(self.config.pid_file))
             try:
