@@ -107,6 +107,8 @@ class Config(object):
             return "PID file path must be absolute"
         if self._config['log_file'] and not os.path.isabs(self._config['log_file']):
             return "Log file path must be absolute"
+        if self._config['control_socket'] and not os.path.isabs(self._config['control_socket']):
+            return "Control socket path must be absolute"
         if self._config['smtp_ver'] not in ('SMTP', 'ESMTP'):
             return "smtp_ver must be in ('SMTP', 'ESMTP')"
         if self._config['logging_method'] not in self.logging_methods:

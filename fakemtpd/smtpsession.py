@@ -1,6 +1,7 @@
 import logging
 import re
 
+from fakemtpd import stats
 from fakemtpd.config import Config
 
 # SMTP States
@@ -46,6 +47,7 @@ class SMTPSession(object):
 
     def _connect(self):
         self._state = SMTP_CONNECTED
+        stats.increment("lifetime_sessions")
 
     def _print_banner(self):
         self._write("220 %s %s %s" % (self.config.hostname, self.config.smtp_ver, self.config.mtd))
@@ -146,6 +148,7 @@ class SMTPSession(object):
                 self._write("554 5.5.1 Error: TLS already active")
                 return True
             if self.config.tls_cert and self._mode == 'EHLO':
+                stats.increment("lifetime_tls_sessions")
                 self._write("220 Go Ahead", self._starttls)
             else:
                 self._write('502 5.5.1 STARTTLS not supported in RFC821 mode (meant to say EHLO?)')

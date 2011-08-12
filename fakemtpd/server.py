@@ -13,6 +13,7 @@ import socket
 import sys
 import tornado.ioloop
 
+from fakemtpd import stats
 from fakemtpd.better_lockfile import BetterLockfile
 from fakemtpd.config import Config
 from fakemtpd.connection import Connection
@@ -66,7 +67,7 @@ class SMTPD(Signalable):
         parser.add_option('--syslog-port', type=int, action='store', default=self.config.syslog_port,
                 help="Syslog port to write to (default %default, only valid of logging method is 'syslog')")
         parser.add_option('--control-socket', action='store', default=self.config.control_socket,
-                help="Path to put a unix domain socket for controlling fakemtpd")
+                help="Path to put a unix domain socket for controlling fakemtpd (default %default)")
         (opts, _) = parser.parse_args()
         return opts
 
@@ -153,6 +154,7 @@ class SMTPD(Signalable):
             logging.debug("new connection")
             c.connect(connection, address)
             self.connections.append(s)
+            stats.set_value("active_sessions", len(self.connections))
             c.on_closed(lambda: self.connections.remove(s) if s in self.connections else None)
 
     def control_connection_ready(self, io_loop, sock, fd, events):
@@ -218,12 +220,12 @@ class SMTPD(Signalable):
             pidfile.release()
         else:
             pidfile = None
-        if opts.control_socket:
-            control_sock = self.create_control_socket(opts.control_socket)
+        if self.config.control_socket:
+            control_sock = self.create_control_socket(self.config.control_socket)
             if not control_sock:
                 sys.exit(1)
         else:
-            control_socket = None
+            control_sock = None
         # Do this before daemonizing so that the user can see any errors
         # that may occur (and so we have the right privileges)
         sock = self.bind()
