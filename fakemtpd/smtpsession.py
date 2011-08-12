@@ -177,7 +177,6 @@ class SMTPSession(object):
         return False
 
     def _print_timeout(self):
-        self._timeout_handle = None
         self._write("421 4.4.2 %s Error: timeout exceeded" % self.config.hostname, self.conn.close, False)
 
     def write_help(self):

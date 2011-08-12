@@ -40,6 +40,7 @@ class Config(object):
     """Allowable SMTP versions"""
     smtp_versions = ('SMTP', 'ESMTP')
 
+    version = "0.2.0"
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
@@ -49,6 +50,7 @@ class Config(object):
             'address': '0.0.0.0',
             'user': None,
             'group': None,
+            'control_socket': None,
             'hostname': socket.gethostname(),
             'verbose': 0,
             'mtd': 'FakeMTPD',
@@ -56,6 +58,7 @@ class Config(object):
             'tls_cert': None,
             'tls_key': None,
             'timeout': 30,
+            'control_timeout': 60,
             'daemonize': False,
             'pid_file': None,
             'log_file': None,

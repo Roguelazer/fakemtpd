@@ -16,6 +16,7 @@ import tornado.ioloop
 from fakemtpd.better_lockfile import BetterLockfile
 from fakemtpd.config import Config
 from fakemtpd.connection import Connection
+from fakemtpd.controlsession import ControlSession
 from fakemtpd.smtpsession import SMTPSession
 from fakemtpd.signals import Signalable
 
@@ -25,6 +26,7 @@ class SMTPD(Signalable):
     def __init__(self):
         super(SMTPD, self).__init__()
         self.connections = []
+        self.control_connections = []
         self.config = Config.instance()
         self.uid = self.gid = None
 
@@ -63,6 +65,8 @@ class SMTPD(Signalable):
                 help="Syslog host to write to (default %default, only valid if logging method is 'syslog')")
         parser.add_option('--syslog-port', type=int, action='store', default=self.config.syslog_port,
                 help="Syslog port to write to (default %default, only valid of logging method is 'syslog')")
+        parser.add_option('--control-socket', action='store', default=self.config.control_socket,
+                help="Path to put a unix domain socket for controlling fakemtpd")
         (opts, _) = parser.parse_args()
         return opts
 
@@ -115,6 +119,21 @@ class SMTPD(Signalable):
         sock.listen(128)
         return sock
 
+    def create_control_socket(self, path):
+        if os.path.exists(path):
+            logging.error("Cannot create control socket at %s; file already exists", path)
+            return None
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setblocking(0)
+        sock.bind(path)
+        sock.listen(128)
+        def clean_up():
+            sock.close()
+            os.unlink(path)
+        self.on_stop(clean_up)
+        return sock
+
     def create_loop(self, sock):
         io_loop = tornado.ioloop.IOLoop.instance()
         new_connection_handler = functools.partial(self.connection_ready, io_loop, sock)
@@ -135,6 +154,21 @@ class SMTPD(Signalable):
             c.connect(connection, address)
             self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(s) if s in self.connections else None)
+
+    def control_connection_ready(self, io_loop, sock, fd, events):
+        while True:
+            try:
+                connection, address = sock.accept()
+            except socket.error, e:
+                if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
+                    raise
+                return
+            c = Connection(io_loop, self.config.control_timeout)
+            s = ControlSession(c, self)
+            logging.debug("new control connection")
+            self.control_connections.append(s)
+            c.connect(connection, address)
+            c.on_closed(lambda: self.control_connections.remove(s) if s in self.control_connections else None)
 
     def run(self, handle_opts=True):
         if handle_opts:
@@ -162,18 +196,10 @@ class SMTPD(Signalable):
                 self.on_hup(lambda: self._reopen_log_files())
             except IOError, e:
                 self.die("Could not access log file %s" % self.config.log_file)
-            self._log_fmt = '\t'.join((
-                'fakemtpd',
-                '%(asctime)s',
-                socket.gethostname(),
-                '%(process)s',
-                '%(name)s',
-                '%(levelname)s',
-                '%(message)s'))
         else:
             self.log_file = None
         if self.config.logging_method == 'syslog':
-            self._log_fmt = 'fakemtpd[%(process)d]: %(message)s'
+            self._log_fmt = 'fakemtpd[%(process)d] %(name): %(message)s'
         else:
             self._log_fmt = '\t'.join((
                 'fakemtpd',
@@ -192,8 +218,14 @@ class SMTPD(Signalable):
             pidfile.release()
         else:
             pidfile = None
+        if opts.control_socket:
+            control_sock = self.create_control_socket(opts.control_socket)
+            if not control_sock:
+                sys.exit(1)
+        else:
+            control_socket = None
         # Do this before daemonizing so that the user can see any errors
-        # that may occur
+        # that may occur (and so we have the right privileges)
         sock = self.bind()
         self.config.merge_sock(sock)
         if self.config.daemonize:
@@ -215,10 +247,13 @@ class SMTPD(Signalable):
             print >>pidfile.file, os.getpid()
             pidfile.file.flush()
         io_loop = self.create_loop(sock)
+        if control_sock:
+            control_handler = functools.partial(self.control_connection_ready, io_loop, control_sock)
+            io_loop.add_handler(control_sock.fileno(), control_handler, io_loop.READ)
         self.maybe_drop_privs()
         self.on_stop(io_loop.stop)
         logging.getLogger().handlers[0].flush()
-        self._start(io_loop)
+        self.start(io_loop)
 
     def _check_create_log_file(self, uid, gid):
         """Create the log file if necessary, and give it the right owner"""
@@ -246,11 +281,12 @@ class SMTPD(Signalable):
         return level
 
     def _setup_logging(self):
+        # it's not entirely clear to me why we always have to clear the
+        # handlers, nor what's setting them
+        logging.getLogger().handlers = []
         if self.config.logging_method == 'file':
-            logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
         elif self.config.logging_method == 'syslog':
-            logging.getLogger().handlers = []
             facility = logging.handlers.SysLogHandler.LOG_MAIL
             if self.config.syslog_domain_socket:
                 syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
@@ -259,8 +295,11 @@ class SMTPD(Signalable):
             syslog_handler.setLevel(self._log_level)
             syslog_handler.setFormatter(logging.Formatter(self._log_fmt))
             logging.getLogger().addHandler(syslog_handler)
-        else:
+        elif self.config.logging_method == 'stderr':
             logging.basicConfig(stream=sys.stderr, format=self._log_fmt, level=self._log_level)
+            logging.info("Logging to stderr")
+        else:
+            raise NotImplementedError("I don't know how to set up logging method %s" % self.config.logging_method)
 
     def _reopen_log_files(self):
         """Handle a HUP to reload logging"""
@@ -275,8 +314,11 @@ class SMTPD(Signalable):
             os.dup2(self.log_file.fileno(), sys.stderr.fileno())
             self.maybe_drop_privs(add_signals=False)
 
-    def _start(self, io_loop):
+    def start(self, io_loop):
         """Broken out so I can mock this in the tests better"""
         io_loop.start()
         logging.warn("Shutting down")
         logging.shutdown()
+
+    def stop(self):
+        self._signal_stop()
