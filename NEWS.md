@@ -1,3 +1,7 @@
+fakemtpd 0.2.1
+==============
+* Fix a bug with log levels
+
 fakemtpd 0.2.0
 ==============
 This release supports logging to syslog instead of just to a file, which closes Issue #1. To use it, add the following fragment to your config file:
