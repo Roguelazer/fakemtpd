@@ -246,11 +246,11 @@ class SMTPD(Signalable):
         return level
 
     def _setup_logging(self):
+        logging.getLogger().setLevel(self._log_level)
+        logging.getLogger().handlers = []
         if self.config.logging_method == 'file':
-            logging.getLogger().handlers = []
             logging.basicConfig(filename=self.config.log_file, format=self._log_fmt, level=self._log_level)
         elif self.config.logging_method == 'syslog':
-            logging.getLogger().handlers = []
             facility = logging.handlers.SysLogHandler.LOG_MAIL
             if self.config.syslog_domain_socket:
                 syslog_handler = logging.handlers.SysLogHandler(self.config.syslog_connection, facility=facility)
