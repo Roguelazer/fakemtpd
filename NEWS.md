@@ -1,3 +1,7 @@
+fakemtpd 0.2.2
+==============
+* Improve logging output
+
 fakemtpd 0.2.1
 ==============
 * Fix a bug with log levels
@@ -10,7 +14,7 @@ This release supports logging to syslog instead of just to a file, which closes 
     logging_method: syslog
 ```
 
-Syslog also supports some configuration. You can set the `syslog_domain_socket` to log to a domain socket (typically actually the `/dev/log` node). By default, it will use UDP to log to `localhost:514`. You can override these with the `syslog_host` and/or `syslog_port` configuration options. As usual, all of these options have command-line equivalents.
+Syslog also supports some configuration. You can set the `syslog\_domain\_socket` to log to a domain socket (typically actually the `/dev/log` node). By default, it will use UDP to log to `localhost:514`. You can override these with the `syslog\_host` and/or `syslog\_port` configuration options. As usual, all of these options have command-line equivalents.
 
 Additionally, this version cleans up some of the configuration methods. And adds this NEWS file!
 
