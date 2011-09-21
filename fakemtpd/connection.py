@@ -27,8 +27,15 @@ class Connection(Signalable):
         self.timeout = timeout
         self._timeout_handle = None
 
+    @staticmethod
+    def _format_address(address):
+        if isinstance(address, tuple) and len(address) == 2:
+            return "[%s]:%d" % (address[0], address[1])
+        else:
+            return "%s" % address
+
     def connect(self, sock, address):
-        log.info("Connecting to %s", address)
+        log.info("Starting connection from %s", self._format_address(address))
         self.sock = sock
         self.address = address
         self.sock.setblocking(0)
@@ -69,7 +76,7 @@ class Connection(Signalable):
             self.io_loop.remove_timeout(self._timeout_handle)
             self._timeout_handle = None
         self._signal_closed()
-        log.info("Connection to %s closed", self.address)
+        log.info("Connection from %s closed", self._format_address(self.address))
 
     def _handle_data(self, data):
         self._signal_data(data)
