@@ -1,3 +1,7 @@
+fakemtpd 0.2.3
+==============
+Allow setting SSL protocol version; change default from SSLv23 to SSLv3
+
 fakemtpd 0.2.2
 ==============
 * Improve logging output
