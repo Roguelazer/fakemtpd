@@ -153,7 +153,7 @@ class SMTPSession(object):
         return False
 
     def _starttls(self):
-        self.conn.starttls(keyfile=self.config.tls_key, certfile=self.config.tls_cert)
+        self.conn.starttls(keyfile=self.config.tls_key, certfile=self.config.tls_cert, ssl_version=self.config.ssl_version)
         self._encrypted = True
 
     def _state_mail_from(self, data):

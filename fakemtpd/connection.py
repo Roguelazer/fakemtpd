@@ -51,7 +51,8 @@ class Connection(Signalable):
         assert self.state == CONNECTED
         log.debug("starting TLS session")
         self.sock = ssl.wrap_socket(self.sock, server_side=True,
-                do_handshake_on_connect=False, **ssl_options)
+                do_handshake_on_connect=False,
+                **ssl_options)
         self.io_loop.remove_handler(self.sock.fileno())
         self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
         self.stream.set_close_callback(self.close)
