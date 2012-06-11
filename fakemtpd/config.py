@@ -4,6 +4,7 @@ import copy
 import new
 import os.path
 import socket
+import ssl
 import yaml
 
 def _param_getter_factory(parameter):
@@ -40,6 +41,9 @@ class Config(object):
     """Allowable SMTP versions"""
     smtp_versions = ('SMTP', 'ESMTP')
 
+    """Known SSL versions"""
+    ssl_versions = ('ssl2', 'ssl3', 'tls1')
+
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
@@ -60,9 +64,10 @@ class Config(object):
             'pid_file': None,
             'log_file': None,
             'logging_method': 'stderr',
+            'ssl_version': 'ssl3',
             'syslog_host': 'localhost',
             'syslog_port': 514,
-            'syslog_domain_socket': None
+            'syslog_domain_socket': None,
     }
 
     def __init__(self):
@@ -110,6 +115,8 @@ class Config(object):
             return "logging_method must be in (%s)" % ",".join(self.logging_methods)
         if bool(self._config['tls_cert']) ^ bool(self._config['tls_key']):
             return "Cannot specify a certificate without a key, or vice versa"
+        if self._config['ssl_version'] not in self.ssl_versions:
+            return "Allowed values for ssl_version are (%s), got '%s'" % (','.join(("'" + s + "'") for s in self.ssl_versions), self._config['ssl_version'])
         if self._config['tls_cert']:
             self._config['smtp_ver'] = 'ESMTP'
         if bool(self._config['daemonize']) and not bool(self._config['pid_file']):
@@ -130,6 +137,15 @@ class Config(object):
     @property
     def port(self):
         return int(self._config['port'])
+
+    @property
+    def ssl_version(self):
+        if self._config['ssl_version'] == 'ssl3':
+            return ssl.PROTOCOL_SSLv3
+        elif self._config['ssl_version'] == 'tls1':
+            return ssl.PROTOCOL_TLSv1
+        else:
+            return ssl.PROTOCOL_SSLv23
 
     @property
     def syslog_connection(self):
