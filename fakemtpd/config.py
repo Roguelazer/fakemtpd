@@ -95,7 +95,12 @@ class Config(object):
     def read_file(self, path):
         """Merge in options from a YAML file."""
         with open(path) as f:
-            data = yaml.safe_load(f)
+            return self.read_file_obj(f)
+
+    def read_file_obj(self, file_obj):
+        """Merge in options from a YAML file-like-object."""
+        data = yaml.safe_load(file_obj)
+        if data:
             for key in data:
                 if key in self._parameters:
                     self._config[key] = data[key]
@@ -141,10 +146,10 @@ class Config(object):
 
     @property
     def ssl_version(self):
-        parts = ["".join(b) for _, b in itertools.groupby(
+        parts = ["".join(b).upper() for _, b in itertools.groupby(
             self._config['ssl_version'], str.isdigit
         )]
-        attr = 'PROTOCOL_%sV%s' % (parts[0], parts[1])
+        attr = 'PROTOCOL_%sv%s' % (parts[0], parts[1])
         return getattr(ssl, attr)
 
     @property
