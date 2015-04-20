@@ -17,7 +17,7 @@ run `fakemtpd --help` to see which ones.
 Contributing
 ------------
 In general, forks and pull requests are useful. If you want to do something more
-involved, send an e-mail to [mailto:jbrown@yelp.com](James Brown).
+involved, send an e-mail to [mailto:Roguelazer@gmail.com](James Brown).
 
 License
 -------
