@@ -35,7 +35,7 @@ class PartialMockServer(fakemtpd.server.SMTPD):
 class ServerManager(object):
     def __init__(self):
         self.server = PartialMockServer()
-        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'mock_config.yaml'))
+        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'data', 'mock_config.yaml'))
         self.server.run(handle_opts=False)
 
     def __enter__(self):
@@ -53,7 +53,7 @@ class ServerManager(object):
 class IntegrationTest(TestCase):
     def test_construct(self):
         self.server = PartialMockServer()
-        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'mock_config.yaml'))
+        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'data', 'mock_config.yaml'))
         self.server.run(handle_opts=False)
 
     def test_listen(self):
