@@ -19,6 +19,7 @@ from fakemtpd.connection import Connection
 from fakemtpd.smtpsession import SMTPSession
 from fakemtpd.signals import Signalable
 
+
 class SMTPD(Signalable):
     _signals = ('stop', 'hup', 'stop_user')
 
@@ -30,39 +31,55 @@ class SMTPD(Signalable):
 
     def handle_opts(self):
         parser = optparse.OptionParser()
-        parser.add_option('-c', '--config-path', action='store', default=None,
-                help='Path to a YAML configuration file (overridden by any conflicting args)')
-        parser.add_option('-p', '--port', dest='port', action='store', type=int, default=self.config.port,
-                help='Port to listen on (default %default)')
-        parser.add_option('-H', '--hostname', dest='hostname', action='store', default=self.config.hostname,
-                help='Hostname to report as (default %default)')
-        parser.add_option('-B', '--bind', dest='address', action='store', default=self.config.address,
-                help='Address to bind to (default "%default")')
-        parser.add_option('-v', '--verbose', action='count', default=self.config.verbose,
-                help='Be more verbose')
-        parser.add_option('--tls-cert', action='store', default=self.config.tls_cert,
-                help='Certificate to use for TLS')
-        parser.add_option('--tls-key', action='store', default=self.config.tls_key,
-                help='Key to use for TLS')
-        parser.add_option('--gen-config', action='store_true', default=False,
-                help='Print out a config file with all parameters')
-        parser.add_option('--smtp-ver', action='store', type='choice', choices=self.config.smtp_versions, default=self.config.smtp_ver,
-                help='SMTP version (one of (%s)), default %s' % (','.join(self.config.smtp_versions), self.config.smtp_ver))
-        parser.add_option('-d', '--daemonize', action='store_true', default=self.config.daemonize,
-                help='Damonize (must also specify a pid_file)')
-        parser.add_option('--pid-file', action='store', default=self.config.pid_file,
-                help='PID File')
-        parser.add_option('--logging-method', type='choice', action='store', default=self.config.logging_method,
-                choices=self.config.logging_methods,
-                help="Logging method, must be one of (%s), default %s" % (','.join(self.config.logging_methods), self.config.logging_method))
-        parser.add_option('--log-file', action='store', default=self.config.log_file,
-                help="File to write logs to (only valid if logging method is 'file')")
-        parser.add_option('--syslog-domain-socket', action='store', default=self.config.syslog_domain_socket,
-                help="Syslog domain socket to write to (default %default, overrides syslog host if provided)")
-        parser.add_option('--syslog-host', action='store', default=self.config.syslog_host,
-                help="Syslog host to write to (default %default, only valid if logging method is 'syslog')")
-        parser.add_option('--syslog-port', type=int, action='store', default=self.config.syslog_port,
-                help="Syslog port to write to (default %default, only valid of logging method is 'syslog')")
+        parser.add_option(
+            '-c', '--config-path', action='store', default=None,
+            help='Path to a YAML configuration file (overridden by any conflicting args)')
+        parser.add_option(
+            '-p', '--port', dest='port', action='store', type=int, default=self.config.port,
+            help='Port to listen on (default %default)')
+        parser.add_option(
+            '-H', '--hostname', dest='hostname', action='store', default=self.config.hostname,
+            help='Hostname to report as (default %default)')
+        parser.add_option(
+            '-B', '--bind', dest='address', action='store', default=self.config.address,
+            help='Address to bind to (default "%default")')
+        parser.add_option(
+            '-v', '--verbose', action='count', default=self.config.verbose,
+            help='Be more verbose')
+        parser.add_option(
+            '--tls-cert', action='store', default=self.config.tls_cert,
+            help='Certificate to use for TLS')
+        parser.add_option(
+            '--tls-key', action='store', default=self.config.tls_key,
+            help='Key to use for TLS')
+        parser.add_option(
+            '--gen-config', action='store_true', default=False,
+            help='Print out a config file with all parameters')
+        parser.add_option(
+            '--smtp-ver', action='store', type='choice', choices=self.config.smtp_versions, default=self.config.smtp_ver,
+            help='SMTP version (one of (%s)), default %s' % (','.join(self.config.smtp_versions), self.config.smtp_ver))
+        parser.add_option(
+            '-d', '--daemonize', action='store_true', default=self.config.daemonize,
+            help='Damonize (must also specify a pid_file)')
+        parser.add_option(
+            '--pid-file', action='store', default=self.config.pid_file,
+            help='PID File')
+        parser.add_option(
+            '--logging-method', type='choice', action='store', default=self.config.logging_method,
+            choices=self.config.logging_methods,
+            help="Logging method, must be one of (%s), default %s" % (','.join(self.config.logging_methods), self.config.logging_method))
+        parser.add_option(
+            '--log-file', action='store', default=self.config.log_file,
+            help="File to write logs to (only valid if logging method is 'file')")
+        parser.add_option(
+            '--syslog-domain-socket', action='store', default=self.config.syslog_domain_socket,
+            help="Syslog domain socket to write to (default %default, overrides syslog host if provided)")
+        parser.add_option(
+            '--syslog-host', action='store', default=self.config.syslog_host,
+            help="Syslog host to write to (default %default, only valid if logging method is 'syslog')")
+        parser.add_option(
+            '--syslog-port', type=int, action='store', default=self.config.syslog_port,
+            help="Syslog port to write to (default %default, only valid of logging method is 'syslog')")
         (opts, _) = parser.parse_args()
         return opts
 
@@ -160,7 +177,7 @@ class SMTPD(Signalable):
                 self.on_stop(lambda: self.log_file.flush())
                 self.on_stop(lambda: self.log_file.close())
                 self.on_hup(lambda: self._reopen_log_files())
-            except IOError, e:
+            except IOError:
                 self.die("Could not access log file %s" % self.config.log_file)
             self._log_fmt = '\t'.join((
                 'fakemtpd',

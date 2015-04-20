@@ -1,11 +1,12 @@
 from __future__ import with_statement
 
 import copy
-import new
+import itertools
 import os.path
 import socket
 import ssl
 import yaml
+
 
 def _param_getter_factory(parameter):
     def f(self):
@@ -28,6 +29,7 @@ class _ParamsAsProps(type):
                 setattr(cls, parameter, property(f))
         return cls
 
+
 class Config(object):
     """Singleton class for implementing configuration. Use the instance
     method to get handles to it. Supports loading options from both objects
@@ -42,32 +44,31 @@ class Config(object):
     smtp_versions = ('SMTP', 'ESMTP')
 
     """Known SSL versions"""
-    ssl_versions = ('ssl2', 'ssl3', 'tls1')
-
+    ssl_versions = ('ssl2', 'ssl3', 'ssl23', 'tls1')
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
     # command-line options
     _parameters = {
-            'port': 25,
-            'address': '0.0.0.0',
-            'user': None,
-            'group': None,
-            'hostname': socket.gethostname(),
-            'verbose': 0,
-            'mtd': 'FakeMTPD',
-            'smtp_ver': 'SMTP',
-            'tls_cert': None,
-            'tls_key': None,
-            'timeout': 30,
-            'daemonize': False,
-            'pid_file': None,
-            'log_file': None,
-            'logging_method': 'stderr',
-            'ssl_version': 'ssl3',
-            'syslog_host': 'localhost',
-            'syslog_port': 514,
-            'syslog_domain_socket': None,
+        'port': 25,
+        'address': '0.0.0.0',
+        'user': None,
+        'group': None,
+        'hostname': socket.gethostname(),
+        'verbose': 0,
+        'mtd': 'FakeMTPD',
+        'smtp_ver': 'SMTP',
+        'tls_cert': None,
+        'tls_key': None,
+        'timeout': 30,
+        'daemonize': False,
+        'pid_file': None,
+        'log_file': None,
+        'logging_method': 'stderr',
+        'ssl_version': 'ssl23',
+        'syslog_host': 'localhost',
+        'syslog_port': 514,
+        'syslog_domain_socket': None,
     }
 
     def __init__(self):
@@ -140,12 +141,11 @@ class Config(object):
 
     @property
     def ssl_version(self):
-        if self._config['ssl_version'] == 'ssl3':
-            return ssl.PROTOCOL_SSLv3
-        elif self._config['ssl_version'] == 'tls1':
-            return ssl.PROTOCOL_TLSv1
-        else:
-            return ssl.PROTOCOL_SSLv23
+        parts = ["".join(b) for _, b in itertools.groupby(
+            self._config['ssl_version'], str.isdigit
+        )]
+        attr = 'PROTOCOL_%sV%s' % (parts[0], parts[1])
+        return getattr(ssl, attr)
 
     @property
     def syslog_connection(self):
