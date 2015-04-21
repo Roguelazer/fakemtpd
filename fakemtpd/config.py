@@ -43,8 +43,12 @@ class Config(object):
     """Allowable SMTP versions"""
     smtp_versions = ('SMTP', 'ESMTP')
 
-    """Known SSL versions"""
-    ssl_versions = ('ssl2', 'ssl3', 'ssl23', 'tls1')
+    """Known SSL versions.
+    On Python 2.7.8+ with OpenSSL 1.0+, you want "ssl23" to get maximum security and compatibility.
+
+    Otherwise, you probably need "tls1".
+    """
+    ssl_versions = ('ssl3', 'ssl23', 'tls1')
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
