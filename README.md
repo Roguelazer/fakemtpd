@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Roguelazer/fakemtpd.png)](https://travis-ci.org/Roguelazer/fakemtpd)
+
 fakemtpd
 ========
 
