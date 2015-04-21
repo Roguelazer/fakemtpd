@@ -1,27 +1,41 @@
 from __future__ import absolute_import
 
+import functools
 import os
 import signal
 import socket
 
-from contextlib import contextmanager
+import tornado.ioloop
 
-import testify
-from testify import TestCase, assert_equal, setup, teardown, run
+from testify import TestCase, assert_equal, run
 
 import fakemtpd.server
 
+
 class PartialMockServer(fakemtpd.server.SMTPD):
-    def _start(self, io_loop):
-        self._io_loop = io_loop
+    def create_loop(self, sock):
+        self._saved_socket = sock
+        return self
+
+    def _start(self, *args):
+        pass
+
+    def stop(self):
+        if hasattr(self, '_io_loop'):
+            self._io_loop.stop()
 
     def _actually_start(self):
-        self._io_loop.start()
+        io_loop = tornado.ioloop.IOLoop.instance()
+        new_connection_handler = functools.partial(self.connection_ready, io_loop, self._saved_socket)
+        io_loop.add_handler(self._saved_socket.fileno(), new_connection_handler, io_loop.READ)
+        self._io_loop = io_loop
+        io_loop.start()
+
 
 class ServerManager(object):
     def __init__(self):
         self.server = PartialMockServer()
-        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'mock_config.yaml'))
+        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'data', 'mock_config.yaml'))
         self.server.run(handle_opts=False)
 
     def __enter__(self):
@@ -35,10 +49,11 @@ class ServerManager(object):
     def __exit__(self, *args):
         os.kill(self.pid, signal.SIGTERM)
 
+
 class IntegrationTest(TestCase):
     def test_construct(self):
         self.server = PartialMockServer()
-        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'mock_config.yaml'))
+        self.server.config.read_file(os.path.join(os.path.dirname(__file__), 'data', 'mock_config.yaml'))
         self.server.run(handle_opts=False)
 
     def test_listen(self):

@@ -10,20 +10,21 @@ SMTP_HELO = 2
 SMTP_MAIL_FROM = 3
 
 # Command REs
-MAIL_FROM_COMMAND=re.compile(r'MAIL\s+FROM:\s*<([^>]*)>', re.I)
-HELO_COMMAND=re.compile(r'^HELO\s+(.*)', re.I)
-EHLO_COMMAND=re.compile(r'^EHLO\s+(.*)', re.I)
-RCPT_TO_COMMAND=re.compile(r'^RCPT\s+TO:\s*<([^>]+)>', re.I)
-VRFY_COMMAND=re.compile(r'^VRFY (<?.+>?)', re.I)
-QUIT_COMMAND=re.compile(r'^QUIT', re.I)
-NOOP_COMMAND=re.compile(r'^NOOP', re.I)
-RSET_COMMAND=re.compile(r'^RSET', re.I)
-DATA_COMMAND=re.compile(r'^DATA', re.I)
-HELP_COMMAND=re.compile(r'^HELP', re.I)
-EXPN_COMMAND=re.compile(r'^EXPN', re.I)
-STARTTLS_COMMAND=re.compile(r'^STARTTLS', re.I)
+MAIL_FROM_COMMAND = re.compile(r'MAIL\s+FROM:\s*<([^>]*)>', re.I)
+HELO_COMMAND = re.compile(r'^HELO\s+(.*)', re.I)
+EHLO_COMMAND = re.compile(r'^EHLO\s+(.*)', re.I)
+RCPT_TO_COMMAND = re.compile(r'^RCPT\s+TO:\s*<([^>]+)>', re.I)
+VRFY_COMMAND = re.compile(r'^VRFY (<?.+>?)', re.I)
+QUIT_COMMAND = re.compile(r'^QUIT', re.I)
+NOOP_COMMAND = re.compile(r'^NOOP', re.I)
+RSET_COMMAND = re.compile(r'^RSET', re.I)
+DATA_COMMAND = re.compile(r'^DATA', re.I)
+HELP_COMMAND = re.compile(r'^HELP', re.I)
+EXPN_COMMAND = re.compile(r'^EXPN', re.I)
+STARTTLS_COMMAND = re.compile(r'^STARTTLS', re.I)
 
 log = logging.getLogger("smtpsession")
+
 
 class SMTPSession(object):
     """Implement the SMTP protocol on top of a Connection"""
@@ -75,7 +76,7 @@ class SMTPSession(object):
             rv = self._state_helo(data) or rv
         elif self._state == SMTP_MAIL_FROM:
             rv = self._state_mail_from(data)
-        if rv == False:
+        if rv is False:
             self._write("503 Commands out of sync or unrecognized")
             log.warn("Bad command '%s' from %s" % (data, self.conn.address))
             self._state = SMTP_HELO if self._state >= SMTP_HELO else SMTP_CONNECTED
@@ -183,17 +184,17 @@ class SMTPSession(object):
     def write_help(self):
         self._write("250 Ok")
         message = [
-                "HELO",
-                "EHLO",
-                "HELP",
-                "NOOP",
-                "QUIT",
-                "MAIL FROM:<address>",
-                "RCPT TO:<address>",
-                "DATA",
-                "VRFY",
-                "EXPN",
-                "RSET",
+            "HELO",
+            "EHLO",
+            "HELP",
+            "NOOP",
+            "QUIT",
+            "MAIL FROM:<address>",
+            "RCPT TO:<address>",
+            "DATA",
+            "VRFY",
+            "EXPN",
+            "RSET",
         ]
         if self.config.tls_cert:
             message.append("STARTTLS")

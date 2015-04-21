@@ -1,0 +1,19 @@
+address: 127.0.0.1
+daemonize: false
+group: null
+hostname: mock_hostname
+log_file: null
+logging_method: stderr
+mtd: FakeMTPD
+pid_file: null
+port: 0  # bind to any
+smtp_ver: SMTP
+ssl_version: ssl23
+syslog_domain_socket: null
+syslog_host: localhost
+syslog_port: 514
+timeout: 30
+tls_cert: null
+tls_key: null
+user: null
+verbose: 0

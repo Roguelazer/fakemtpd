@@ -1,0 +1,21 @@
+sudo: false
+language: python
+python:
+    - "2.6"
+    - "2.7"
+env:
+    - TORNADO_VERSION=1.2.1
+    - TORNADO_VERSION=2.4.1
+    - TORNADO_VERSION=3.2.2
+    - TORNADO_VERSION=4.0.2
+    - TORNADO_VERSION=4.1.0
+install: 
+    - "pip install -r requirements.txt -r requirements-tests.txt --use-mirrors"
+    - "pip install tornado==$TORNADO_VERSION"
+# only build master and PRs, not every branch
+branches:
+    only:
+        - master
+script: "testify -v tests"
+matrix:
+    fast_finish: true
