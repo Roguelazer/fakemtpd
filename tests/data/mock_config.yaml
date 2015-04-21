@@ -8,7 +8,7 @@ mtd: FakeMTPD
 pid_file: null
 port: 0  # bind to any
 smtp_ver: SMTP
-ssl_version: sslv23
+ssl_version: ssl23
 syslog_domain_socket: null
 syslog_host: localhost
 syslog_port: 514
