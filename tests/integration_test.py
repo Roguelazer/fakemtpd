@@ -67,11 +67,11 @@ class IntegrationTest(TestCase):
             sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
             sock.connect((config.address, config.port))
             data = sock.recv(1024)
-            assert_equal("220 mock_hostname SMTP FakeMTPD\r\n", data)
-            sock.send("HELO google.com\r\n")
+            assert_equal(b"220 mock_hostname SMTP FakeMTPD\r\n", data)
+            sock.send(b"HELO google.com\r\n")
             data = sock.recv(1024)
-            assert_equal("250 mock_hostname\r\n", data)
-            sock.send("QUIT")
+            assert_equal(b"250 mock_hostname\r\n", data)
+            sock.send(b"QUIT")
             sock.close()
 
     def test_ehlo(self):
@@ -79,11 +79,11 @@ class IntegrationTest(TestCase):
             sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
             sock.connect((config.address, config.port))
             data = sock.recv(1024)
-            assert_equal("220 mock_hostname SMTP FakeMTPD\r\n", data)
-            sock.send("EHLO google.com\r\n")
+            assert_equal(b"220 mock_hostname SMTP FakeMTPD\r\n", data)
+            sock.send(b"EHLO google.com\r\n")
             data = sock.recv(1024)
-            assert_equal("250-mock_hostname\r\n", data)
-            sock.send("QUIT")
+            assert_equal(b"250-mock_hostname\r\n", data)
+            sock.send(b"QUIT")
             sock.close()
 
 

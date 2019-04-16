@@ -6,6 +6,8 @@ import itertools
 import os.path
 import socket
 import ssl
+
+import six
 import yaml
 
 
@@ -24,19 +26,18 @@ class _ParamsAsProps(type):
     your own with the same name. Just like if they were statically defined!"""
     def __new__(clsarg, name, bases, d):
         cls = super(_ParamsAsProps, clsarg).__new__(clsarg, name, bases, d)
-        for parameter in cls._parameters.iterkeys():
+        for parameter in cls._parameters.keys():
             if parameter not in d:
                 f = _param_getter_factory(parameter)
                 setattr(cls, parameter, property(f))
         return cls
 
 
+@six.add_metaclass(_ParamsAsProps)
 class Config(object):
     """Singleton class for implementing configuration. Use the instance
     method to get handles to it. Supports loading options from both objects
     and YAML files."""
-
-    __metaclass__ = _ParamsAsProps
 
     """Allowable logging methods"""
     logging_methods = ('stderr', 'file', 'syslog')

@@ -16,7 +16,13 @@ setup(
         "Topic :: Communications :: Email",
         "Development Status :: 2 - Pre-Alpha"
     ],
-    requires=["tornado (>=1.0)", "lockfile (>=0.7)", "yaml", "daemon"],
+    install_requires=[
+        "tornado (>=4.0,<5.0)",
+        "lockfile (>=0.7)",
+        "PyYAML>=5.0",
+        "daemon",
+        "six"
+    ],
     packages=["fakemtpd"],
     scripts=["bin/fakemtpd"],
 )

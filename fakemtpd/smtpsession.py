@@ -1,6 +1,8 @@
 import logging
 import re
 
+import six
+
 from fakemtpd.config import Config
 
 # SMTP States
@@ -60,6 +62,8 @@ class SMTPSession(object):
         self.conn.write(data + '\r\n', *args, **kwargs)
 
     def _handle_data(self, data):
+        if not isinstance(data, six.text_type):
+            data = data.decode('utf-8')
         rv = False
         data = data.rstrip('\r\n')
         log.debug('%s >>> %s', self._prefix, data)

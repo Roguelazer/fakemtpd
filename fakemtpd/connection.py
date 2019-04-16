@@ -2,6 +2,7 @@ import functools
 import logging
 import ssl
 import time
+import six
 
 import tornado.iostream
 
@@ -86,11 +87,13 @@ class Connection(Signalable):
         # Add this callback in a roundabout way to work around a regression
         # in Tornado 1.2 that causes stack overflows if you do this the
         # naive way
-        self.stream.io_loop.add_callback(functools.partial(self.stream.read_until, "\n", self._handle_data))
+        self.stream.io_loop.add_callback(functools.partial(self.stream.read_until, b"\n", self._handle_data))
         self._set_timeout()
 
     def write(self, data, callback=None, st=True):
         """Write some data to the connection (asynchronously)"""
+        if isinstance(data, six.text_type):
+            data = data.encode('utf-8')
         self.stream.write(data, callback)
         if st:
             self._set_timeout()

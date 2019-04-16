@@ -144,7 +144,7 @@ class SMTPD(Signalable):
             try:
                 connection, address = sock.accept()
             except socket.error as e:
-                if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
+                if e.errno not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
             c = Connection(io_loop, self.config.timeout)
@@ -154,7 +154,7 @@ class SMTPD(Signalable):
             self.connections.append(s)
             c.on_closed(lambda: self.connections.remove(s) if s in self.connections else None)
 
-    def run(self, handle_opts=True):
+    def run(self, handle_opts=True, await_signals=False):
         if handle_opts:
             opts = self.handle_opts()
             errors = self.config.merge_opts(opts)
@@ -223,9 +223,10 @@ class SMTPD(Signalable):
             os.dup2(self.log_file.fileno(), sys.stderr.fileno())
         if self.config.pid_file:
             self.on_stop_user(pidfile.destroy)
-        signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
-        signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
-        signal.signal(signal.SIGHUP, lambda signum, frame: self._signal_hup())
+        if await_signals:
+            signal.signal(signal.SIGINT, lambda signum, frame: self._signal_stop())
+            signal.signal(signal.SIGTERM, lambda signum, frame: self._signal_stop())
+            signal.signal(signal.SIGHUP, lambda signum, frame: self._signal_hup())
         # This needs to happen after daemonization
         self._setup_logging()
         logging.info("Bound on port %d", self.config.port)

@@ -1,5 +1,7 @@
 import types
 
+import six
+
 # This module is a lot of magic. Like, a lot of magic. The general structure
 # is this:
 #
@@ -45,10 +47,12 @@ class _Signals(type):
         cls = super(_Signals, clsarg).__new__(clsarg, *args, **kwargs)
         for signal in cls._signals:
             (on, sig) = _handler_factory(signal)
-            setattr(cls, on.__name__, types.UnboundMethodType(on, None, cls))
-            setattr(cls, sig.__name__, types.UnboundMethodType(sig, None, cls))
+            setattr(cls, on.__name__, on)
+            setattr(cls, sig.__name__, sig)
         return cls
 
+
+@six.add_metaclass(_Signals)
 class Signalable(object):
     """Inherit from this mixin (and make sure to call super in your __init__
     function) to have basic support for signals (Observer pattern). For every
@@ -57,7 +61,6 @@ class Signalable(object):
     * on_foo allows remote objects to subscribe to event foo
     * _signal_foo allows this object to notify on event foo
     """
-    __metaclass__ = _Signals
     _signals = []
 
     def __init__(self):
