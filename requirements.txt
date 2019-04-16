@@ -1,4 +1,4 @@
-PyYAML==3.10
+PyYAML==5.1
 lockfile>=0.7
-tornado>=1.0,<4.2
-daemon==1.1
+tornado>=1.0,<4.6
+daemon==1.2

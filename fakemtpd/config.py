@@ -1,4 +1,5 @@
 from __future__ import with_statement
+from __future__ import print_function
 
 import copy
 import itertools
@@ -48,7 +49,7 @@ class Config(object):
 
     Otherwise, you probably need "tls1".
     """
-    ssl_versions = ('ssl3', 'ssl23', 'tls1')
+    ssl_versions = ('ssl23', 'tls1')
 
     # Parameters and their defaults. All of these can be overridden
     # via the YAML configuration. Some can also be overridden via
@@ -112,7 +113,7 @@ class Config(object):
 
     def write(self):
         """Writes the current config to stdout, as YAML"""
-        print yaml.dump(self._config, default_flow_style=False),
+        print(yaml.dump(self._config, default_flow_style=False))
 
     def _validate(self):
         if self._config['pid_file'] and not os.path.isabs(self._config['pid_file']):

@@ -103,5 +103,6 @@ class SignalableTestCase(TestCase):
         obj.send_d(10)
         assert_equal(food_data, 10)
 
+
 if __name__ == "__main__":
     run()

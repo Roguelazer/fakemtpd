@@ -14,6 +14,7 @@ import types
 # implement the actual logic. It then sets the docstrings and __name__
 # (which is important to get the help looking correct).
 
+
 def _handler_factory(signal_name):
     def on_signal(self, callback, first=False):
         if first:
@@ -21,6 +22,7 @@ def _handler_factory(signal_name):
         else:
             self._signal_handlers.setdefault(signal_name, []).append(callback)
         return signal_name
+
     def signal_signal(self, *args):
         for handler in self._signal_handlers.get(signal_name, []):
             handler(*args)
@@ -33,6 +35,7 @@ def _handler_factory(signal_name):
     on_signal.__name__ = "on_" + signal_name
     signal_signal.__name__ = "_signal_" + signal_name
     return (on_signal, signal_signal)
+
 
 class _Signals(type):
     """Metaclass for implementing a basic observer pattern. Creates

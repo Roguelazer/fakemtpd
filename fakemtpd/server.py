@@ -84,7 +84,8 @@ class SMTPD(Signalable):
         return opts
 
     def die(self, message):
-        print >>sys.stderr, message
+        sys.stderr.write(message + '\n')
+        sys.stderr.flush()
         sys.exit(1)
 
     def get_uid_gid(self):
@@ -142,7 +143,7 @@ class SMTPD(Signalable):
         while True:
             try:
                 connection, address = sock.accept()
-            except socket.error, e:
+            except socket.error as e:
                 if e[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                     raise
                 return
@@ -229,7 +230,7 @@ class SMTPD(Signalable):
         self._setup_logging()
         logging.info("Bound on port %d", self.config.port)
         if pidfile:
-            print >>pidfile.file, os.getpid()
+            pidfile.file.write('%d\n' % os.getpid())
             pidfile.file.flush()
         io_loop = self.create_loop(sock)
         self.maybe_drop_privs()

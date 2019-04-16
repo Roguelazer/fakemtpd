@@ -3,6 +3,7 @@ import lockfile
 import logging
 import os
 
+
 class BetterLockfile(object):
     """
     A lockfile (matching the specification of the builtin lockfile class)
@@ -13,7 +14,7 @@ class BetterLockfile(object):
         self.lock_file = None
         try:
             self.lock_file = open(self.path, 'a')
-        except:
+        except Exception:
             raise lockfile.LockError()
         self._has_lock = False
 
@@ -25,9 +26,9 @@ class BetterLockfile(object):
     def acquire(self):
         logging.debug("Locking %s", self.path)
         try:
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             self._has_lock = True
-        except IOError, e:
+        except IOError:
             raise lockfile.AlreadyLocked()
         logging.debug("Locked %s", self.path)
 
@@ -44,7 +45,7 @@ class BetterLockfile(object):
         if self._has_lock:
             return True
         try:
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
             return False
         except IOError:

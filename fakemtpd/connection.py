@@ -1,9 +1,5 @@
-import errno
 import functools
 import logging
-import select
-import socket
-import sys
 import ssl
 import time
 
@@ -15,6 +11,7 @@ CLOSED = "closed"
 CONNECTED = "connected"
 
 log = logging.getLogger("connection")
+
 
 class Connection(Signalable):
     """Wrapper around tornado.iostream.IOStream"""
@@ -50,11 +47,13 @@ class Connection(Signalable):
     def starttls(self, **ssl_options):
         assert self.state == CONNECTED
         log.debug("starting TLS session")
-        self.sock = ssl.wrap_socket(self.sock, server_side=True,
-                do_handshake_on_connect=False,
-                **ssl_options)
+        self.sock = ssl.wrap_socket(
+            self.sock, server_side=True,
+            do_handshake_on_connect=False,
+            **ssl_options
+        )
         self.io_loop.remove_handler(self.sock.fileno())
-        self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop = self.io_loop)
+        self.stream = tornado.iostream.SSLIOStream(self.sock, io_loop=self.io_loop)
         self.stream.set_close_callback(self.close)
         self._read()
 

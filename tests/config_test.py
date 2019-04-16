@@ -29,8 +29,6 @@ class ConfigTestCase(TestCase):
         assert_equal(ssl.PROTOCOL_SSLv23, c.ssl_version)
         c = _config_with('ssl_version: ssl23')
         assert_equal(ssl.PROTOCOL_SSLv23, c.ssl_version)
-        c = _config_with('ssl_version: ssl3')
-        assert_equal(ssl.PROTOCOL_SSLv3, c.ssl_version)
         c = _config_with('ssl_version: tls1')
         assert_equal(ssl.PROTOCOL_TLSv1, c.ssl_version)
 
