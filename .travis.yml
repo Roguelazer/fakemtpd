@@ -4,11 +4,9 @@ python:
     - "2.6"
     - "2.7"
 env:
-    - TORNADO_VERSION=1.2.1
-    - TORNADO_VERSION=2.4.1
-    - TORNADO_VERSION=3.2.2
     - TORNADO_VERSION=4.0.2
     - TORNADO_VERSION=4.1.0
+    - TORNADO_VERSION=4.5.3
 install: 
     - "pip install -r requirements.txt -r requirements-tests.txt --use-mirrors"
     - "pip install tornado==$TORNADO_VERSION"
